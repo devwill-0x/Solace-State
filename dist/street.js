@@ -1,0 +1,152 @@
+// The scene is never shown as pixels: its lighting is sampled into ASCII by ascii.js.
+import * as THREE from './vendor/three.module.js';
+const rnd=(n)=>{const v=Math.sin(n*127.13+37.7)*43758.5453;return v-Math.floor(v);};
+function texture(w,h,paint){const c=document.createElement('canvas');c.width=w;c.height=h;paint(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;}
+export class Street {
+  constructor(){
+    this.scene=new THREE.Scene();this.scene.background=new THREE.Color(0x020202);this.scene.fog=new THREE.FogExp2(0x050505,.025);
+    this.camera=new THREE.PerspectiveCamera(72,1,.08,160);this.camera.rotation.order='YXZ';
+    this.renderer=new THREE.WebGLRenderer({antialias:false,alpha:false,preserveDrawingBuffer:true,powerPreference:'low-power'});this.renderer.setPixelRatio(1);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.setClearColor(0x020202);this.renderer.toneMapping=THREE.NoToneMapping;
+    this.boxes=[];this.pipes=[];this.wires=[];this.lanterns=[];this.dawn=0;this.endAmount=0;
+    this.scene.add(new THREE.AmbientLight(0xffffff,.56));this.sky=new THREE.HemisphereLight(0xb6b6b6,0x303030,1.15);this.scene.add(this.sky);
+    const moon=new THREE.DirectionalLight(0xededed,1.1);moon.position.set(-3,14,9);this.scene.add(moon);
+    this.wallTexture=texture(128,128,(c,w,h)=>{c.fillStyle='#b7b7b7';c.fillRect(0,0,w,h);for(let i=0;i<3500;i++){const v=90+rnd(i)*125;c.fillStyle=`rgb(${v},${v},${v})`;c.fillRect(rnd(i+9)*w,rnd(i+81)*h,1,1);}for(let y=0;y<h;y+=32){c.fillStyle='#888';c.fillRect(0,y,w,1);}});
+    this.buildGround();for(let i=0;i<12;i++){this.buildHouse(-1,i);this.buildHouse(1,i);}this.buildPoles();this.buildDetails();this.buildShrine();this.flush();this.buildRain();
+  }
+  box(x,y,z,w,h,d,color=0x777777){this.boxes.push({p:[x,y,z],s:[w,h,d],color});}
+  pipe(a,b,r=.04,color=0x777777){this.pipes.push({a,b,r,color});}
+  wire(points){for(let i=0;i<points.length-1;i++)this.wires.push(...points[i],...points[i+1]);}
+  curve(a,b,sag=.7){const points=[];for(let i=0;i<=24;i++){const t=i/24;points.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t-Math.sin(t*Math.PI)*sag,a[2]+(b[2]-a[2])*t]);}this.wire(points);}
+  plane(x,y,z,w,h,map,rotation=0,basic=false){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),basic?new THREE.MeshBasicMaterial({map,side:THREE.DoubleSide}):new THREE.MeshLambertMaterial({map,side:THREE.DoubleSide}));m.position.set(x,y,z);m.rotation.y=rotation;this.scene.add(m);return m;}
+  glow(x,z,w=2,d=3,opacity=.4){const map=texture(64,128,(c,a,b)=>{const g=c.createRadialGradient(a/2,b/2,0,a/2,b/2,b*.5);g.addColorStop(0,'#b0b0b0');g.addColorStop(1,'#000');c.fillStyle=g;c.fillRect(0,0,a,b);});const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d),new THREE.MeshBasicMaterial({map,transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false}));m.rotation.x=-Math.PI/2;m.position.set(x,.023,z);this.scene.add(m);}
+  buildGround(){
+    const pavement=texture(256,256,(c,w,h)=>{c.fillStyle='#393939';c.fillRect(0,0,w,h);for(let i=0;i<16000;i++){const n=22+rnd(i)*65;c.fillStyle=`rgb(${n},${n},${n})`;c.fillRect(rnd(i+80)*w,rnd(i+3)*h,1+rnd(i+9)*2,1);}c.strokeStyle='#1a1a1a';c.lineWidth=2;for(let y=0;y<256;y+=32){c.beginPath();c.moveTo(0,y);c.lineTo(256,y);c.stroke();for(let x=0;x<256;x+=64)c.strokeRect(x+(y%64?32:0),y,64,32);}});
+    pavement.wrapS=pavement.wrapT=THREE.RepeatWrapping;pavement.repeat.set(5,50);
+    const ground=new THREE.Mesh(new THREE.PlaneGeometry(24,160),new THREE.MeshPhongMaterial({map:pavement,color:0xaaaaaa,shininess:65,specular:0x888888}));ground.rotation.x=-Math.PI/2;ground.position.z=-55;this.scene.add(ground);
+    for(const side of [-1,1]){this.box(side*3.8,.07,-47,1.25,.14,126,0x696969);this.box(side*3.2,.015,-47,.14,.025,126,0x999999);for(let z=12;z> -105;z-=1.5){this.box(side*3.55,.15,z,.8,.025,.035,0x343434);if(z%6<1)for(let j=0;j<9;j++)this.box(side*3.2,.04,z+j*.055,.2,.02,.025,0x181818);}}
+    for(let i=0;i<85;i++){const z=8-i*1.23,x=(rnd(i+19)-.5)*5,w=.1+rnd(i+1)*.75,d=.08+rnd(i+43)*1.7;this.box(x,.008,z,w,.008,d,0x525252);}
+    // Strips of reflected shop light break up the wet paving.
+    for(const z of [-6,-20,-27,-43,-62,-74]){this.glow(0,z,6,7,.16);for(let i=0;i<14;i++)this.box((rnd(i+z)-.5)*3,.015,z+rnd(i-z)*5,.2+rnd(i+3)*.9,.008,.025+rnd(i)*.04,0x8b8b8b);}
+    const manhole=new THREE.Mesh(new THREE.CylinderGeometry(.48,.48,.025,24),new THREE.MeshLambertMaterial({color:0x5b5b5b}));manhole.position.set(-.9,.026,-12);this.scene.add(manhole);for(let i=-3;i<=3;i++)this.box(-.9,.043,-12+i*.1,.65,.008,.025,0x272727);
+  }
+  buildHouse(side,i){
+    const length=8,z=4-i*8.6,height=5+rnd(i*13+side)*5,face=side*4.25,center=side*7.1;
+    this.box(center,height/2,z,5.7,height,length,0x8b8b8b);this.box(face,1.5,z,.15,3,length,0x424242);
+    this.box(face,3.02,z,.28,.2,length+.3,0x9c9c9c);this.box(face,height-.25,z,.25,.28,length+.3,0x505050);
+    for(const zz of [z-3.9,z,z+3.9])this.box(face-side*.1,1.6,zz,.17,3.2,.18,0xb0b0b0);
+    // Wooden shopfronts: inset panels, slatted doors, paper windows, shutter ribs.
+    const style=i%3;
+    for(let j=0;j<28;j++){const zz=z-3.8+j*.275;this.box(face-side*.12,1.48,zz,.11,2.6,.04,style===0?0x8b8b8b:0x656565);}
+    for(const yy of [.3,1.0,2.0,2.75])this.box(face-side*.18,yy,z,.08,.045,length-.2,0xb0b0b0);
+    if(style!==1){
+      const shop=texture(256,128,(c,w,h)=>{c.fillStyle=i%4===0?'#9f9f9f':'#595959';c.fillRect(0,0,w,h);for(let x=0;x<w;x+=16){c.fillStyle='#272727';c.fillRect(x,0,3,h);}for(let y=0;y<h;y+=32){c.fillStyle='#323232';c.fillRect(0,y,w,3);}for(let n=0;n<25;n++){c.fillStyle=n%2?'#515151':'#aaaaaa';c.fillRect(rnd(n+i)*w,80+rnd(n+2)*40,8+rnd(n)*8,16);}});
+      this.plane(face-side*.24,1.65,z,6.6,1.9,shop,side===-1?Math.PI/2:-Math.PI/2,i%4===0);
+    }else for(let j=0;j<23;j++)this.box(face-side*.15,.3+j*.112,z,.05,.032,7.4,j%2?0x707070:0x4a4a4a);
+    // Upper windows with small balconies and air conditioning units.
+    for(let level=4.2;level<height-.8;level+=2.3)for(let k=0;k<3;k++){
+      const zz=z-2.7+k*2.6;this.box(face-side*.1,level,zz,.08,1.35,1.5,0x1d1d1d);
+      this.box(face-side*.16,level,zz,.08,.06,1.6,0x969696);this.box(face-side*.16,level,zz,.08,1.45,.055,0x969696);
+      this.box(face-side*.32,level-.83,zz,.8,.1,1.9,0x595959);this.box(face-side*.7,level-.4,zz,.035,.7,1.9,0x6e6e6e);
+      for(let t=0;t<7;t++)this.box(face-side*.7,level-.44,zz-.85+t*.28,.045,.72,.035,0x8d8d8d);
+    }
+    if(i%2===0){this.box(face-side*.4,3.6,z+2,.7,.6,1.1,0xb4b4b4);for(let k=0;k<7;k++)this.box(face-side*.78,3.4+k*.055,z+2,.035,.02,.9,0x414141);}
+    this.pipe([face-side*.35,.2,z-3.65],[face-side*.35,height+.3,z-3.65],.055,0xaaaaaa);
+    // Deep, pitched tiled eaves give the street its Japanese roofline.
+    const ridge=side*7.3,eave=side*3.45,back=side*10.7,roofY=height+.1,top=height+1.2;
+    const verts=[eave,roofY,z-4.35,eave,roofY,z+4.35,ridge,top,z+4.35,eave,roofY,z-4.35,ridge,top,z+4.35,ridge,top,z-4.35,ridge,top,z-4.35,ridge,top,z+4.35,back,roofY,z+4.35,ridge,top,z-4.35,back,roofY,z+4.35,back,roofY,z-4.35];
+    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));geo.computeVertexNormals();this.scene.add(new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:0x686868,side:THREE.DoubleSide})));
+    this.box(eave,roofY-.08,z,.22,.18,8.9,0xbbbbbb);this.box(ridge,top+.04,z,.28,.15,8.9,0x919191);
+    for(let k=0;k<23;k++)this.pipe([eave,roofY+.04,z-4.2+k*.38],[ridge,top+.04,z-4.2+k*.38],.045,0x909090);
+    for(let k=1;k<6;k++){const t=k/6;this.pipe([eave+(ridge-eave)*t,roofY+(top-roofY)*t+.07,z-4.3],[eave+(ridge-eave)*t,roofY+(top-roofY)*t+.07,z+4.3],.026,0x414141);}
+    // Sloped shop canopy, divided into cloth strips.
+    for(let k=0;k<14;k++){const awning=new THREE.Mesh(new THREE.PlaneGeometry(.95,.51),new THREE.MeshLambertMaterial({color:k%2?0x777777:0xb9b9b9,side:THREE.DoubleSide}));awning.position.set(face-side*.47,2.93,z-3.3+k*.51);awning.rotation.set(0,0,side*.24);awning.rotation.y=Math.PI/2;awning.rotation.x=-Math.PI/2;this.scene.add(awning);}
+    this.box(face-side*.9,2.7,z,.05,.3,7.2,0x818181);
+    if(i<10){const labels=side<0?['居酒屋','食堂','珈琲','古書店','らーめん','小料理']:['喫茶','酒','たばこ','うどん','焼鳥','銭湯'];this.sign(side*(3.52-rnd(i)*.12),4.1+rnd(i+9)*1.2,z+2.6,labels[(i+(side>0?0:2))%labels.length],i%2===0);}
+    if(i%2===0)this.lantern(side*3.35,2.55,z-1.8);
+    // Shop name running along the facade.
+    const name=texture(512,96,(c,w,h)=>{c.fillStyle='#303030';c.fillRect(0,0,w,h);c.strokeStyle='#999';c.strokeRect(4,4,w-8,h-8);c.fillStyle='#c8c8c8';c.textAlign='center';c.textBaseline='middle';c.font='44px serif';c.fillText(['やきとり　月','喫茶　雨宿り','小さな食堂','居酒屋　灯'][i%4],w/2,h/2);});
+    this.plane(face-side*.28,3.5,z,5.7,.73,name,side<0?Math.PI/2:-Math.PI/2,true);
+  }
+  sign(x,y,z,label,lit=true){
+    const h=label.length*.48+.45,w=.78;
+    this.box(x,y,z,w+.1,h+.1,.27,0x505050);
+    const map=texture(128,Math.round(128*h/w),(c,a,b)=>{c.fillStyle=lit?'#bcbcbc':'#292929';c.fillRect(0,0,a,b);c.strokeStyle=lit?'#333':'#aaa';c.lineWidth=5;c.strokeRect(7,7,a-14,b-14);c.fillStyle=lit?'#151515':'#ccc';c.font='bold 82px serif';c.textAlign='center';c.textBaseline='middle';[...label].forEach((s,i)=>c.fillText(s,a/2,(i+.65)*b/(label.length+.3)));});
+    this.plane(x,y,z+.145,w,h,map,0,true);this.pipe([x,y+h*.5,z],[x+(x<0?-.8:.8),y+h*.5,z],.035,0xaaaaaa);
+  }
+  lantern(x,y,z){
+    const body=new THREE.Mesh(new THREE.SphereGeometry(.3,14,12),new THREE.MeshBasicMaterial({color:0x999999}));body.scale.y=1.3;body.position.set(x,y,z);this.scene.add(body);this.lanterns.push(body);
+    this.box(x,y+.42,z,.23,.08,.23,0x242424);this.box(x,y-.42,z,.23,.08,.23,0x242424);this.pipe([x,y+.45,z],[x,3.15,z],.018,0x939393);
+    for(let j=-3;j<=3;j++){const r=Math.sqrt(1-(j/4)**2)*.3,points=[];for(let a=0;a<=20;a++){const ang=a/20*Math.PI*2;points.push([x+Math.cos(ang)*r,y+j*.1,z+Math.sin(ang)*r]);}this.wire(points);}
+    this.glow(x*.65,z,3.5,4,.23);
+  }
+  buildPoles(){
+    for(let i=0;i<7;i++){
+      const side=i%2?-1:1,x=side*3.05,z=1-i*14;
+      this.pipe([x,0,z],[x,9.7,z],.11,0x858585);this.pipe([x-.75,8.5,z],[x+.75,8.5,z],.05,0xa9a9a9);this.pipe([x-.8,7.65,z],[x+.8,7.65,z],.035,0x858585);
+      for(let j=-1;j<=1;j++)this.pipe([x+j*.54,8.5,z],[x+j*.54,8.8,z],.08,0x4b4b4b);
+      this.box(x,7.8,z,.45,.55,.4,0x777777);this.pipe([x,6.2,z],[x-side*1,6.2,z],.04,0xaaa);
+      this.box(x-side,6.08,z,.45,.13,.8,0xcccccc);
+      for(let k=0;k<4;k++)this.curve([x-.55+k*.32,8.8,z],[x-.55+k*.32,8.6,z-27],.9+k*.16);
+      for(let k=0;k<3;k++)this.curve([x,7.1-k*.22,z],[-x,6.8-k*.22,z-8-k],1.2);
+      this.curve([x,7.8,z],[side*4.25,4,z-4],.6);
+      const light=new THREE.PointLight(0xdddddd,18,14,2);light.position.set(x-side,5.9,z);this.scene.add(light);
+    }
+  }
+  buildDetails(){
+    // Vending machine with an illuminated grid of cans, payment panel and tray.
+    this.box(3.35,1.16,-7.3,1.22,2.25,.75,0xaaaaaa);
+    const vending=texture(192,320,(c,w,h)=>{c.fillStyle='#bdbdbd';c.fillRect(0,0,w,h);c.fillStyle='#222';c.fillRect(10,15,145,210);for(let y=0;y<4;y++)for(let x=0;x<5;x++){const xx=19+x*26,yy=23+y*48;c.fillStyle=(x+y)%2?'#999':'#ddd';c.fillRect(xx,yy,15,28);c.fillStyle='#444';c.fillRect(xx,yy+8,15,6);c.fillStyle='#eee';c.fillRect(xx-2,yy+33,19,5);}c.fillStyle='#161616';c.fillRect(25,260,130,37);c.fillRect(165,100,12,60);c.fillStyle='#f8f8f8';c.fillRect(165,172,12,12);c.fillStyle='#444';c.font='13px monospace';c.fillText('HOT / COLD',18,245);c.fillText('100',161,85);});
+    this.plane(3.35,1.16,-6.915,1.14,2.18,vending,0,true);this.glow(2,-6.3,5,6,.5);
+    const vl=new THREE.PointLight(0xffffff,10,6,2);vl.position.set(2.9,1.4,-6.3);this.scene.add(vl);
+    // Standing sandwich boards, crates, flowerpots, an old bicycle.
+    for(const [x,z] of [[-3.5,-14],[-3.3,-33],[3.5,-38],[3.4,-58]]){
+      this.box(x,.65,z,.62,1.25,.12,0x787878);this.box(x,.66,z+.07,.46,1.03,.02,0x202020);
+      for(let j=0;j<5;j++)this.box(x,.9-j*.14,z+.09,.3,.025,.01,0xa0a0a0);
+      this.pipe([x-.27,0,z+.3],[x-.27,1.2,z],.025,0xb0b0b0);this.pipe([x+.27,0,z+.3],[x+.27,1.2,z],.025,0xb0b0b0);
+    }
+    for(let i=0;i<15;i++){const x=(i%2?-1:1)*3.75,z=-10-i*5.7;this.box(x,.21,z,.5,.42,.55,0x696969);for(let j=0;j<5;j++)this.box(x-.2+j*.1,.23,z+.28,.02,.35,.025,0x9b9b9b);this.pipe([x,.4,z],[x-.2,.9,z+.1],.03,0x8d8d8d);this.pipe([x,.4,z],[x+.15,1.04,z-.05],.03,0x8d8d8d);}
+    for(const zz of [-17,-17.95]){const points=[];for(let j=0;j<=24;j++){const a=j/24*Math.PI*2;points.push([-3.6,.43+Math.sin(a)*.4,zz+Math.cos(a)*.4]);}this.wire(points);}
+    this.pipe([-3.6,.43,-17],[-3.6,1,-17.5],.026,0xbbbbbb);this.pipe([-3.6,1,-17.5],[-3.6,.43,-17.95],.026,0xbbbbbb);this.pipe([-3.6,.43,-17.95],[-3.6,.43,-17],.02,0xbbbbbb);this.box(-3.6,1.05,-17.5,.22,.07,.4,0x999999);
+    // The little radio rests in a recessed shop window.
+    this.box(-3.8,1.05,-25,.5,.45,.8,0xbbbbbb);this.pipe([-3.8,1.2,-25],[-3.8,1.9,-25.3],.012,0xdddddd);
+    // A cat at the foot of a shutter. Its ears and eyes survive the ASCII pass.
+    const catMat=new THREE.MeshLambertMaterial({color:0xbcbcbc}),cat=new THREE.Group();
+    const body=new THREE.Mesh(new THREE.SphereGeometry(.2,10,8),catMat);body.scale.set(1,1.5,.8);body.position.y=.28;cat.add(body);
+    const head=new THREE.Mesh(new THREE.SphereGeometry(.18,10,8),catMat);head.position.set(0,.58,.07);cat.add(head);
+    for(const side of [-1,1]){const ear=new THREE.Mesh(new THREE.ConeGeometry(.085,.18,3),catMat);ear.position.set(side*.12,.74,.07);cat.add(ear);const eye=new THREE.Mesh(new THREE.SphereGeometry(.025,6,4),new THREE.MeshBasicMaterial({color:0xffffff}));eye.position.set(side*.07,.6,.22);cat.add(eye);}
+    cat.position.set(-2.45,0,-43);cat.rotation.y=.2;this.scene.add(cat);this.cat=cat;
+    this.lantern(3.15,2.6,-64);this.box(3.55,1.2,-64,.15,2.4,.18,0x8a8a8a);
+    // Direction plaques are actual Japanese typography, then converted to glyphs.
+    const direction=texture(256,96,(c,w,h)=>{c.fillStyle='#555';c.fillRect(0,0,w,h);c.fillStyle='#ddd';c.font='32px serif';c.textAlign='center';c.fillText('月見神社 →',w/2,60);});this.plane(-3.4,2.1,-75,1.2,.45,direction,0,true);
+  }
+  buildShrine(){
+    const z=-86;
+    for(const x of [-2.6,2.6]){this.pipe([x,0,z],[x,4.9,z],.2,0x9d9d9d);this.box(x,.22,z,.65,.44,.65,0x5a5a5a);}
+    this.box(0,4.25,z,6.2,.28,.3,0xa4a4a4);this.box(0,5.02,z,7.3,.35,.7,0xc3c3c3);this.box(0,5.27,z,7.6,.18,.85,0x525252);this.box(0,4.6,z,.25,.7,.23,0x777777);
+    this.curve([-2.5,3.9,z+.2],[2.5,3.9,z+.2],.45);for(let i=-2;i<=2;i++)this.box(i*.8,3.5-Math.cos(i*.4)*.12,z+.22,.12,.4,.03,0xbfbfbf);
+    for(let j=0;j<8;j++)this.box(0,.1+j*.14,-88-j*.6,6,.2+j*.28,.6,0x777777);
+    for(const side of [-1,1])for(let i=0;i<6;i++){const x=side*(5+rnd(i)*4),zz=-83-i*4;this.pipe([x,0,zz],[x,10,zz],.35,0x454545);for(let k=0;k<3;k++){const crown=new THREE.Mesh(new THREE.SphereGeometry(2.4-k*.4,9,6),new THREE.MeshLambertMaterial({color:0x393939}));crown.position.set(x,6+k*2,zz);this.scene.add(crown);}}
+    this.lantern(-2.5,2.9,-84);this.lantern(2.5,2.9,-84);
+    this.sun=new THREE.Mesh(new THREE.SphereGeometry(1.8,18,12),new THREE.MeshBasicMaterial({color:0xc8c8c8}));this.sun.position.set(0,7,-120);this.sun.visible=false;this.scene.add(this.sun);
+  }
+  flush(){
+    const helper=new THREE.Object3D(),color=new THREE.Color();
+    const boxes=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshLambertMaterial({color:0xffffff,map:this.wallTexture}),this.boxes.length);
+    this.boxes.forEach((b,i)=>{helper.position.set(...b.p);helper.rotation.set(0,0,0);helper.scale.set(...b.s);helper.updateMatrix();boxes.setMatrixAt(i,helper.matrix);boxes.setColorAt(i,color.setHex(b.color));});boxes.computeBoundingSphere();this.scene.add(boxes);
+    const pipes=new THREE.InstancedMesh(new THREE.CylinderGeometry(1,1,1,7),new THREE.MeshLambertMaterial({color:0xffffff}),this.pipes.length),up=new THREE.Vector3(0,1,0);
+    this.pipes.forEach((p,i)=>{const a=new THREE.Vector3(...p.a),b=new THREE.Vector3(...p.b),dir=b.clone().sub(a);helper.position.copy(a).add(b).multiplyScalar(.5);helper.quaternion.setFromUnitVectors(up,dir.clone().normalize());helper.scale.set(p.r,dir.length(),p.r);helper.updateMatrix();pipes.setMatrixAt(i,helper.matrix);pipes.setColorAt(i,color.setHex(p.color));});pipes.computeBoundingSphere();this.scene.add(pipes);
+    const wireGeo=new THREE.BufferGeometry();wireGeo.setAttribute('position',new THREE.Float32BufferAttribute(this.wires,3));this.scene.add(new THREE.LineSegments(wireGeo,new THREE.LineBasicMaterial({color:0x747474})));this.boxes=null;this.pipes=null;this.wires=null;
+  }
+  buildRain(){const count=550,positions=new Float32Array(count*6);for(let i=0;i<count;i++){const x=(rnd(i)-.5)*18,y=rnd(i+4)*11,z=10-rnd(i+9)*110;positions.set([x,y,z,x-.015,y-.22,z],i*6);}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(positions,3));const material=new THREE.LineBasicMaterial({color:0x787878,transparent:true,opacity:.36});this.rain=new THREE.LineSegments(geo,material);this.scene.add(this.rain);}
+  resize(w,h,aspect){this.renderer.setSize(w,h,false);this.camera.aspect=aspect;this.camera.updateProjectionMatrix();}
+  render(state,time,dt,reduced=false){
+    this.dawn+=(Number(state.ended)-this.dawn)*Math.min(dt*.18,.1);this.sky.intensity=1.15+this.dawn*1.3;
+    const bg=Math.round(this.dawn*35);this.scene.background.setHex((bg<<16)|(bg<<8)|bg);this.scene.fog.color.copy(this.scene.background);
+    const p=state.player,bob=state.moving&&!reduced?Math.sin(state.distance*7)*.018:0;
+    this.endAmount+=(Number(state.ended)-this.endAmount)*Math.min(dt*.32,.1);const end=this.endAmount;
+    this.camera.position.set(p.x*(1-end),1.64+bob,p.z+(-79-p.z)*end);this.camera.rotation.set(p.pitch*(1-end)+.13*end,p.yaw*(1-end),0);this.sun.visible=this.dawn>.15;
+    if(!reduced&&!state.paused){const pos=this.rain.geometry.attributes.position;for(let i=0;i<pos.count;i+=2){let y=pos.getY(i)-dt*5;if(y<0)y=11;pos.setY(i,y);pos.setY(i+1,y-.22);}pos.needsUpdate=true;}
+    this.rain.material.opacity=.36*(1-this.dawn);this.cat.rotation.y=.2+Math.sin(time*.6)*.08;
+    this.renderer.render(this.scene,this.camera);return this.renderer.domElement;
+  }
+}

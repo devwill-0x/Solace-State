@@ -1,25 +1,6 @@
-import {test} from 'node:test';
-import assert from 'node:assert/strict';
-import {createState,comforts,bench,findPath,isWalkable,interact,serialize,move} from '../dist/game.js';
-test('every comfort and the ending can be reached on foot, without crossing the stream outside the bridge',()=>{
-  const state=createState();state.started=true;
-  for(const item of [...comforts,bench]){
-    const path=findPath(state.player,{x:item.x,y:item.y+2});assert.ok(path.length,`${item.id} is reachable`);
-    for(const step of path){assert.ok(isWalkable(step.x,step.y));assert.ok(Math.hypot(step.x-Math.round(state.player.x),step.y-Math.round(state.player.y))<=1);state.player=step;}
-    const result=interact(state);assert.equal(result.id,item.id);
-  }
-  assert.equal(state.found.size,5);assert.equal(state.ended,true);
-});
-test('the bench requires all five comforts, and revisiting never duplicates progress',()=>{
-  const state=createState();state.started=true;state.player={x:bench.x,y:bench.y};assert.equal(interact(state).locked,true);assert.equal(state.ended,false);
-  state.player={x:comforts[0].x,y:comforts[0].y};interact(state);assert.equal(interact(state).revisited,true);assert.equal(state.found.size,1);
-});
-test('progress roundtrips and corrupt saves cannot create an unearned ending or invalid player',()=>{
-  const state=createState();state.started=true;state.found.add('cat');state.player={x:60,y:60};
-  assert.deepEqual(serialize(createState(JSON.parse(JSON.stringify(serialize(state))))),serialize(state));
-  const bad=createState({found:['invented','cat','cat'],player:{x:null,y:Infinity},ended:true});assert.equal(bad.found.size,1);assert.equal(bad.ended,false);assert.deepEqual(bad.player,{x:43,y:73});
-});
-test('pause stops walking and the stream requires using the bridge',()=>{
-  const state=createState();state.started=true;state.paused=true;assert.equal(move(state,1,0),false);assert.deepEqual(state.player,{x:43,y:73});
-  assert.equal(isWalkable(110,73),false);assert.equal(isWalkable(110,62),true);assert.deepEqual(findPath({x:43,y:73},{x:110,y:73}),[]);
-});
+import {test} from 'node:test';import assert from 'node:assert/strict';import {createState,walk,notice,nearby,serialize,stops,destination,canWalk} from '../dist/game.js';
+test('a continuous first-person walk reaches all four comforts and the shrine',()=>{const s=createState();s.started=true;for(const stop of [...stops,destination]){while(s.player.z>stop.z+.1)assert.ok(walk(s,1,0,1/30));s.player.x=stop.x;assert.equal(nearby(s).id,stop.id);assert.equal(notice(s).id,stop.id);s.player.x=0;}assert.equal(s.found.size,4);assert.equal(s.ended,true);});
+test('collision keeps the player out of shops and machines without blocking the lane',()=>{assert.equal(canWalk(4,-2),false);assert.equal(canWalk(3,-7),false);for(let z=9;z> -90;z--)assert.ok(canWalk(0,z));const s=createState();s.started=true;s.player.x=3.2;walk(s,0,1,.1);assert.equal(s.player.x,3.2);});
+test('the ending needs all four distinct comforts and revisiting does not duplicate them',()=>{const s=createState();s.started=true;s.player={...s.player,...destination};assert.equal(notice(s).locked,true);assert.equal(s.ended,false);s.player={...s.player,...stops[0]};notice(s);assert.equal(notice(s).revisited,true);assert.equal(s.found.size,1);});
+test('movement follows camera direction, diagonal speed is normalized, pause stops movement',()=>{const a=createState(),b=createState();a.started=b.started=true;walk(a,1,0,.1);walk(b,1,1,.1);assert.ok(Math.abs(a.distance-b.distance)<.001);a.player.yaw=Math.PI/2;const x=a.player.x;walk(a,1,0,.1);assert.ok(a.player.x<x);a.paused=true;const old={...a.player};walk(a,1,0,.1);assert.deepEqual(a.player,old);});
+test('saved walks roundtrip and corrupted progress cannot unlock morning',()=>{const s=createState();s.started=true;s.found.add('radio');assert.deepEqual(serialize(createState(serialize(s))),serialize(s));const bad=createState({found:['cat','cat','fake'],player:{x:0,z:0,yaw:NaN,pitch:0},ended:true});assert.equal(bad.ended,false);assert.equal(bad.found.size,1);assert.equal(bad.player.z,7);});

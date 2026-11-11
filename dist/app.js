@@ -1,106 +1,70 @@
-import {comforts,bench,createState,move,nearest,interact,findPath,serialize} from './game.js';
-import {Scene} from './scene.js';
-const $=id=>document.getElementById(id),storageKey='solace-state-v1';
-let saved;try{saved=JSON.parse(localStorage.getItem(storageKey));}catch{}
-let state=createState(saved),scene=new Scene($('world')),last=0,time=0,stepTimer=0,saveTimer=0,breathUntil=0,dialogue=false,pendingItem=null,audio=null,muted=true,wasPaused=false;
-const keys=new Set();
-function save(){try{localStorage.setItem(storageKey,JSON.stringify(serialize(state)));}catch{}}
-function updateJournal(){
-  $('memories').replaceChildren(...comforts.map(item=>{
-    const li=document.createElement('li'),found=state.found.has(item.id);li.className=found?'found':'';
-    const icon=document.createElement('span');icon.className='memory-icon';icon.textContent=item.icon;
-    const copy=document.createElement('span');copy.className='memory-copy';
-    const title=document.createElement('strong');title.textContent=item.title;
-    const hint=document.createElement('small');hint.textContent=found?'a little light, kept':item.hint;
-    const check=document.createElement('span');check.className='memory-check';check.textContent=found?'✓':'·';
-    copy.append(title,hint);li.append(icon,copy,check);return li;
-  }));
-  $('count').textContent=String(state.found.size).padStart(2,'0')+' / 05';$('progress').style.width=state.found.size/5*100+'%';
-  if(state.found.size===5)$('pocket-note').textContent='You found five little reasons.\nMorning is waiting by the bench.';
-}
-function story(label,text,symbol='*',action=null){
-  $('story-label').textContent=label;$('story-text').textContent=text;$('story-symbol').textContent=symbol;
-  $('story-action').hidden=!action;
-  if(action){$('story-action').textContent=action.text+'  →';$('story-action').onclick=action.fn;}
-}
-function clearDialogue(){dialogue=false;pendingItem=null;$('story-action').hidden=true;}
-function begin(){state.started=true;$('intro').classList.add('leaving');setTimeout(()=>$('intro').hidden=true,850);story('THE PATH IS YOURS','A tiny bloom catches your eye beside the path. Walk toward a golden spark, then press E. Or simply click it.');$('world').focus({preventScroll:true});save();}
-function finish(){
-  document.body.classList.add('finished');$('chapter').textContent='CHAPTER 02 / THE WORLD, AGAIN';$('location').textContent='A little lighter.';$('weather-icon').textContent='☀';$('weather-label').replaceChildren(document.createTextNode('the rain is passing'),Object.assign(document.createElement('span'),{textContent:'the first light of morning'}));$('scene-caption').textContent='you made it to morning. that is something.';$('pocket-note').textContent='The world is still here.\nAnd so are you.';
-}
-function doInteract(){
-  if(dialogue){clearDialogue();return;}
-  const result=interact(state);if(!result)return;
-  state.path=[];keys.clear();dialogue=true;updateJournal();save();
-  if(result.ending){finish();story(result.label,result.text,'☼',{text:'Stay a little longer',fn:()=>{clearDialogue();story('YOU MADE IT TO MORNING','You sit. The cat settles beside you. Somewhere, a kettle begins to sing. There is nothing else you need to do right now.','☼');}});chime([261.63,329.63,392,523.25]);}
-  else{story(result.label,result.text,result.icon,{text:result.locked?'Keep looking':'Keep wandering',fn:()=>{
-    clearDialogue();
-    if(state.found.size===5)story('ONE LAST QUIET MOMENT','Your pocket is full of little lights. There is a bench on the far side of the stream. Find it, sit down, and let morning come.','=');
-    else story('A LITTLE LIGHT, KEPT',result.after||'The night is still yours to explore.',result.icon);
-    $('world').focus({preventScroll:true});
-  }});if(!result.revisited&&!result.locked)chime([293.66,369.99,440]);}
-}
-function breathe(){
-  if(!state.started||state.ended||state.paused||time<breathUntil)return;
-  state.path=[];keys.clear();clearDialogue();breathUntil=time+7;scene.breath=breathUntil;
-  story('JUST THIS BREATH','Breathe in. Let your shoulders fall. Breathe out. You do not have to solve your whole life tonight.','~');chime([196,246.94]);
-}
-function setPause(value){if(!state.started)return;state.paused=value;keys.clear();$('pause-indicator').hidden=!value;$('pause').textContent=value?'▷':'Ⅱ';$('pause').setAttribute('aria-label',value?'Resume game':'Pause game');if(audio)audio.master.gain.setTargetAtTime(muted||value?0:.2,audio.ctx.currentTime,.4);}
-function openHelp(){wasPaused=state.paused;setPause(true);$('help-dialog').showModal();}
-$('begin').onclick=begin;$('help').onclick=openHelp;$('close-help').onclick=$('help-done').onclick=()=>$('help-dialog').close();$('help-dialog').addEventListener('close',()=>setPause(wasPaused));
-$('pause').onclick=()=>setPause(!state.paused);$('pause-indicator').onclick=()=>setPause(false);
-$('restart').onclick=()=>{wasPaused=state.paused;setPause(true);$('reset-dialog').showModal();};
-$('cancel-reset').onclick=()=>$('reset-dialog').close();$('reset-dialog').addEventListener('close',()=>setPause(wasPaused));
-$('confirm-reset').onclick=()=>{wasPaused=false;$('reset-dialog').close();state=createState();document.body.classList.remove('finished');$('chapter').textContent='CHAPTER 01 / THE LONG NIGHT';$('location').textContent='The quiet between.';$('weather-icon').textContent='⋰';$('weather-label').innerHTML='a gentle rain<span>somewhere after midnight</span>';$('scene-caption').textContent='even the longest night has little lights.';$('pocket-note').innerHTML="You don't have to feel hopeful<br>to follow a little light.";$('intro').hidden=false;$('intro').classList.remove('leaving');clearDialogue();updateJournal();story('A MOMENT TO YOURSELF',"The world is asleep. You aren't. That's okay. There's a path, if you'd like to take it.");save();};
+import {createState,walk,nearby,notice,serialize,stops} from './game.js';
+const $=id=>document.getElementById(id),key='solace-state-street-v2';
+let saved;try{saved=JSON.parse(localStorage.getItem(key));}catch{}
+let state=createState(saved),ascii,street,time=0,last=0,renderTime=0,saveTime=0,dialogue=false,storyUntil=0,breathUntil=0,muted=true,audio,drag=null,wasPaused=false;
+const keys=new Set(),touch=matchMedia('(pointer: coarse)').matches;
+function save(){try{localStorage.setItem(key,JSON.stringify(serialize(state)));}catch{}}
+function tell(label,text,duration=0){$('narrative-label').textContent=label;$('narrative-text').textContent=text;storyUntil=duration?time+duration:0;}
+function updatePocket(){const n=state.found.size;$('pocket').replaceChildren(document.createTextNode(Array.from({length:4},(_,i)=>i<n?'*':'·').join(' ')),Object.assign(document.createElement('span'),{textContent:`${n} / 4 LITTLE LIGHTS`}));}
+function begin(){if(!ascii)return;state.started=true;$('intro').classList.add('leaving');setTimeout(()=>{if(state.started)$('intro').hidden=true;},750);$('crosshair').hidden=false;$('mobile-controls').hidden=false;tell('AFTER THE LAST TRAIN',"No hurry. Follow the street. There is a warm light by the vending machine.",10);$('world').focus({preventScroll:true});save();}
+function releaseMouse(){if(document.pointerLockElement)document.exitPointerLock();}
+function pause(value){if(!state.started)return;state.paused=value;keys.clear();if(value)releaseMouse();$('pause-screen').hidden=!value;if(audio)audio.master.gain.setTargetAtTime(muted||value?0:.28,audio.ctx.currentTime,.3);}
+function finish(){releaseMouse();$('district').textContent='夜明け / FIRST LIGHT';$('clock').textContent='05:08 AM';$('crosshair').hidden=true;$('mobile-controls').hidden=true;$('walk-controls').hidden=true;}
+function advance(){dialogue=false;$('continue').hidden=true;if(state.ended)tell('YOU MADE IT TO MORNING','The street is still here. And so are you.');else if(state.found.size===4)tell('A LITTLE LIGHTER','Four little comforts. Follow the lane to the shrine. Morning will meet you there.',10);else tell('A LITTLE LIGHT, KEPT','There are ordinary miracles down this street. Take your time.',6);$('world').focus({preventScroll:true});}
+function interact(){if(dialogue){advance();return;}const item=notice(state);if(!item)return;keys.clear();dialogue=true;releaseMouse();tell(item.title.toUpperCase(),item.text);$('continue').hidden=false;$('continue').textContent=item.ending?'[ stay a little longer ]':'[ keep walking ↗ ]';if(item.ending)finish();if(!item.revisited&&!item.locked)chime(item.ending?[220,261.63,329.63,440]:[261.63,329.63,392]);updatePocket();save();}
+function breathe(){if(!state.started||state.paused||state.ended||dialogue||time<breathUntil)return;keys.clear();breathUntil=time+7;$('breathing').hidden=false;$('breathing').querySelector('span').textContent='breathe in';tell('JUST THIS MOMENT','You do not have to solve your whole life tonight.',8);}
+function openHelp(){wasPaused=state.paused;pause(true);$('pause-screen').hidden=true;$('help-dialog').showModal();}
+$('help').onclick=openHelp;$('close-help').onclick=$('help-done').onclick=()=>$('help-dialog').close();$('help-dialog').addEventListener('close',()=>pause(wasPaused));$('resume').onclick=()=>pause(false);$('begin').onclick=begin;$('continue').onclick=advance;$('interact').onclick=interact;
+$('restart').onclick=()=>{if(!confirm('Begin the walk again? Your four little lights will be cleared.'))return;state=createState();dialogue=false;breathUntil=0;$('breathing').hidden=true;$('help-dialog').close();$('intro').hidden=false;$('intro').classList.remove('leaving');$('crosshair').hidden=true;$('continue').hidden=true;$('mobile-controls').hidden=true;$('walk-controls').hidden=false;$('district').innerHTML='雨のあと <span class="translation">AFTER THE RAIN</span>';$('clock').textContent='02:17 AM';tell('','');wasPaused=false;pause(false);$('pause-screen').hidden=true;updatePocket();save();};
+$('quality').onclick=()=>{if(ascii)$('quality').innerHTML=`DENSITY <span>${ascii.toggle()}</span>`;};
 window.addEventListener('keydown',e=>{
-  if(e.ctrlKey||e.metaKey||e.altKey||e.target.matches('button,a,input,select,textarea')||document.querySelector('dialog[open]'))return;
-  const key=e.key.toLowerCase();
-  if(['arrowup','arrowdown','arrowleft','arrowright','w','a','s','d',' ','e','enter','escape'].includes(key))e.preventDefault();
-  if(key==='escape'){setPause(!state.paused);return;}
-  if(key==='enter'&&!state.started){begin();return;}
-  if(e.repeat&&(key==='e'||key==='enter'||key===' '))return;
-  if(key==='e'||key==='enter'){doInteract();return;}if(key===' '){breathe();return;}
-  if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(key)){keys.add(key);state.path=[];pendingItem=null;if(dialogue)clearDialogue();}
+  if(e.ctrlKey||e.metaKey||e.altKey||document.querySelector('dialog[open]')||e.target.matches('input,textarea,select'))return;
+  const k=e.key.toLowerCase();
+  if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright','e',' ','escape'].includes(k))e.preventDefault();
+  if(k==='escape'){if(state.started)pause(!state.paused);return;}
+  if(e.target.matches('button')&&['enter',' '].includes(k))return;
+  if(k==='enter'&&!state.started){begin();return;}
+  if(k==='e'&&!e.repeat){interact();return;}if(k===' '&&!e.repeat){breathe();return;}
+  if(!dialogue&&!state.paused)keys.add(k);
 });
-window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>{keys.clear();save();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&state.started)setPause(true);});
-$('world').addEventListener('pointerdown',e=>{
-  if(!state.started||state.ended||state.paused)return;
-  $('world').focus({preventScroll:true});clearDialogue();keys.clear();const point=scene.point(e.clientX,e.clientY);
-  const item=[...comforts,bench].find(c=>Math.hypot((c.x-point.x)*.7,c.y-point.y)<7);
-  if(item){state.target={x:item.x,y:item.y+2};state.path=findPath(state.player,state.target);pendingItem=item;
-    if(nearest(state)?.id===item.id){pendingItem=null;doInteract();}
-  }else{state.target={x:Math.round(point.x),y:Math.round(point.y)};state.path=findPath(state.player,state.target);pendingItem=null;}
-  if(!state.path.length&&!item&&point.y<43)story('A LITTLE CLOSER','The mountains can wait. Follow the path in the lower part of the valley, or click a golden spark.');
+window.addEventListener('keyup',e=>{keys.delete(e.key.toLowerCase());save();});window.addEventListener('blur',()=>{keys.clear();save();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&state.started&&!state.ended)pause(true);});
+const canvas=$('world');
+canvas.addEventListener('pointerdown',e=>{if(!state.started||state.ended||state.paused||dialogue)return;canvas.focus({preventScroll:true});drag={x:e.clientX,y:e.clientY,moved:false,pointerId:e.pointerId};canvas.setPointerCapture(e.pointerId);});
+canvas.addEventListener('pointermove',e=>{
+  if(!state.started||state.ended||state.paused||dialogue)return;
+  if(document.pointerLockElement===canvas){state.player.yaw-=e.movementX*.0025;state.player.pitch=Math.max(-.65,Math.min(.65,state.player.pitch-e.movementY*.002));}
+  else if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>2)drag.moved=true;state.player.yaw-=dx*.005;state.player.pitch=Math.max(-.65,Math.min(.65,state.player.pitch-dy*.003));drag.x=e.clientX;drag.y=e.clientY;}
 });
-// A soft, original ambient bed. Audio begins only after an explicit click.
-function initAudio(){
-  const ctx=new(window.AudioContext||window.webkitAudioContext)(),master=ctx.createGain();master.gain.value=0;master.connect(ctx.destination);
-  const buffer=ctx.createBuffer(1,ctx.sampleRate*3,ctx.sampleRate),data=buffer.getChannelData(0);let brown=0;
-  for(let i=0;i<data.length;i++){brown=(brown+Math.random()*.04-.02)/1.02;data[i]=brown*3;}
-  const rain=ctx.createBufferSource();rain.buffer=buffer;rain.loop=true;const filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.value=1100;const rg=ctx.createGain();rg.gain.value=.23;rain.connect(filter).connect(rg).connect(master);rain.start();
-  for(const frequency of [130.81,196,261.63]){const osc=ctx.createOscillator(),gain=ctx.createGain();osc.type='sine';osc.frequency.value=frequency;gain.gain.value=.045;osc.connect(gain).connect(master);osc.start();}
-  return {ctx,master};
+canvas.addEventListener('pointerup',e=>{if(drag&&!drag.moved&&e.pointerType==='mouse'&&state.started&&!state.ended&&!state.paused&&!dialogue){try{const result=canvas.requestPointerLock?.();result?.catch?.(()=>{});}catch{}}drag=null;});canvas.addEventListener('pointercancel',()=>drag=null);canvas.addEventListener('contextmenu',e=>e.preventDefault());
+for(const button of document.querySelectorAll('[data-move]')){
+  const release=()=>{keys.delete(button.dataset.move);button.classList.remove('active');};
+  button.addEventListener('pointerdown',e=>{e.preventDefault();button.setPointerCapture(e.pointerId);if(!dialogue&&!state.paused){keys.add(button.dataset.move);button.classList.add('active');}});button.addEventListener('pointerup',release);button.addEventListener('pointercancel',release);button.addEventListener('lostpointercapture',release);
 }
-$('sound').onclick=async()=>{try{if(!audio)audio=initAudio();await audio.ctx.resume();muted=!muted;audio.master.gain.setTargetAtTime(muted||state.paused?0:.2,audio.ctx.currentTime,.7);$('sound').setAttribute('aria-pressed',String(!muted));$('sound').innerHTML=`<span id="sound-icon">♪</span> SOUND ${muted?'OFF':'ON'}`;}catch{story('THE SOUND OF QUIET','Your browser could not start audio. The valley is just as welcoming in silence.');}};
-function chime(notes){if(!audio||muted)return;notes.forEach((hz,i)=>{const o=audio.ctx.createOscillator(),g=audio.ctx.createGain(),t=audio.ctx.currentTime+i*.2;o.frequency.value=hz;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.22,t+.04);g.gain.exponentialRampToValueAtTime(.001,t+2.5);o.connect(g).connect(audio.master);o.start(t);o.stop(t+2.6);});}
+function createAudio(){
+  const ctx=new(window.AudioContext||window.webkitAudioContext)(),master=ctx.createGain();master.gain.value=0;master.connect(ctx.destination);const buffer=ctx.createBuffer(1,ctx.sampleRate*3,ctx.sampleRate),data=buffer.getChannelData(0);let brown=0;for(let i=0;i<data.length;i++){brown=(brown+Math.random()*.04-.02)/1.025;data[i]=brown*3;}
+  const rain=ctx.createBufferSource();rain.buffer=buffer;rain.loop=true;const filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.value=1600;const gain=ctx.createGain();gain.gain.value=.4;rain.connect(filter).connect(gain).connect(master);rain.start();
+  for(const hz of [65.41,130.81,196]){const osc=ctx.createOscillator(),g=ctx.createGain();osc.frequency.value=hz;g.gain.value=.018;osc.connect(g).connect(master);osc.start();}return {ctx,master};
+}
+$('sound').onclick=async()=>{try{if(!audio)audio=createAudio();await audio.ctx.resume();muted=!muted;audio.master.gain.setTargetAtTime(muted||state.paused?0:.28,audio.ctx.currentTime,.6);$('sound').setAttribute('aria-pressed',String(!muted));$('sound').innerHTML=`SOUND <span>${muted?'OFF':'ON'}</span>`;}catch{tell('A QUIETER NIGHT','Audio could not start in this browser. You can still walk the street in silence.',6);}};
+function chime(notes){if(!audio||muted)return;notes.forEach((hz,i)=>{const o=audio.ctx.createOscillator(),g=audio.ctx.createGain(),t=audio.ctx.currentTime+i*.24;o.frequency.value=hz;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.16,t+.06);g.gain.exponentialRampToValueAtTime(.001,t+2.8);o.connect(g).connect(audio.master);o.start(t);o.stop(t+3);});}
 function frame(ms){
-  const dt=Math.min((ms-last)/1000,.05);last=ms;if(!state.paused)time+=dt;
-  state.walking=false;
+  const dt=Math.min((ms-last)/1000,.1);last=ms;if(!state.paused)time+=dt;
+  const p=state.player;
   if(state.started&&!state.paused&&!state.ended&&!dialogue){
-    stepTimer+=dt;
-    const dx=Number(keys.has('d')||keys.has('arrowright'))-Number(keys.has('a')||keys.has('arrowleft')),dy=Number(keys.has('s')||keys.has('arrowdown'))-Number(keys.has('w')||keys.has('arrowup'));
-    while(stepTimer>.045){stepTimer-=.045;
-      if(dx||dy)state.walking=move(state,dx,dy);
-      else if(state.path.length){const next=state.path.shift();state.player={...next};state.walking=true;}
-    }
-    if(pendingItem&&!state.path.length){const expected=pendingItem;pendingItem=null;if(nearest(state)?.id===expected.id)doInteract();}
-  }else stepTimer=0;
-  const item=state.started&&!dialogue&&!state.ended&&!state.paused?nearest(state):null;
-  $('interaction-hint').hidden=!item;
-  if(item){$('interaction-hint').querySelector('span').textContent=state.found.has(item.id)?'Stay a moment':item.action;$('interaction-hint').style.left=Math.min(82,Math.max(18,state.player.x/180*100))+'%';$('interaction-hint').style.top=(state.player.y-5)/90*100+'%';}
-  $('world-coordinate').textContent=String(Math.round(state.player.x)).padStart(3,'0')+' : '+String(Math.round(state.player.y)).padStart(3,'0');
-  scene.draw(state,time,dt);saveTimer+=dt;if(saveTimer>2){save();saveTimer=0;}
+    if(keys.has('arrowleft'))p.yaw+=dt*1.4;if(keys.has('arrowright'))p.yaw-=dt*1.4;
+    const forward=Number(keys.has('w')||keys.has('arrowup'))-Number(keys.has('s')||keys.has('arrowdown')),strafe=Number(keys.has('d'))-Number(keys.has('a'));
+    state.moving=walk(state,forward,strafe,dt);
+  }else state.moving=false;
+  const item=state.started&&!state.paused&&!state.ended&&!dialogue?nearby(state):null;$('interact-prompt').hidden=!item;if(item)$('interact-label').textContent=state.found.has(item.id)?'Stay a moment':item.action;
+  if(breathUntil>time){$('breathing').querySelector('span').textContent=breathUntil-time>3.5?'breathe in':'breathe out';}else $('breathing').hidden=true;
+  if(storyUntil&&time>storyUntil&&!dialogue){tell('','');storyUntil=0;}
+  saveTime+=dt;if(saveTime>1){save();saveTime=0;}
+  renderTime+=dt;if(renderTime>=1/30){ascii.draw(state,time,renderTime);renderTime=0;}
   requestAnimationFrame(frame);
 }
-updateJournal();if(state.started){$('intro').hidden=true;story('WELCOME BACK',state.found.size===5?'Your pocket is full of little lights. The bench across the stream is waiting.':'The valley kept your place. Your little lights are still here. Take your time.');}if(state.ended){finish();story('YOU MADE IT TO MORNING','You sit. The cat settles beside you. Somewhere, a kettle begins to sing. There is nothing else you need to do right now.','☼');}
-requestAnimationFrame(frame);
+async function boot(){try{
+  const [{Street},{Ascii}]=await Promise.all([import('./street.js'),import('./ascii.js')]);street=new Street();ascii=new Ascii(canvas,street);ascii.draw(state,0,0);$('loading').hidden=true;$('begin').disabled=false;$('begin').textContent='[ begin walking → ]';
+  if(state.started){$('intro').hidden=true;$('crosshair').hidden=state.ended;$('mobile-controls').hidden=state.ended;tell('THE STREET KEPT YOUR PLACE','The rain has not quite stopped. Your little lights are still here.',7);}if(state.ended){finish();tell('YOU MADE IT TO MORNING','The street is still here. And so are you.');}updatePocket();
+  $('game').dataset.ready='true';requestAnimationFrame(frame);
+}catch(error){$('loading').hidden=true;$('fatal-error').hidden=false;$('fatal-message').textContent='This street needs WebGL to render its ASCII world. Try enabling hardware acceleration or opening it in a current browser.';console.error(error);}}
+boot();

@@ -1,49 +1,20 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#101918">
-  <meta name="description" content="A small ASCII game about a long night and the little things that get us through. Wander, listen, and find your way toward morning.">
-  <title>Solace State — a little light, still</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23101918'/%3E%3Ctext x='32' y='48' text-anchor='middle' font-size='54' fill='%23e5c48a'%3E*%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css">
-  <script type="module" src="app.js"></script>
-</head>
-<body>
-  <div class="app-shell">
-    <header class="topbar">
-      <a class="brand" href="./" aria-label="Solace State home"><span class="brand-mark">✳</span><span>SOLACE STATE<span class="brand-caption">a little light, still.</span></span></a>
-      <div class="header-middle"><span class="live-dot"></span> A QUIET PLACE TO EXIST</div>
-      <nav aria-label="Game settings"><button id="sound" class="text-button" aria-pressed="false"><span id="sound-icon">♪</span> SOUND OFF</button><span class="nav-divider"></span><button id="help" class="text-button">HOW TO PLAY <span class="help-icon">?</span></button></nav>
-    </header>
-
-    <main>
-      <div class="chapter-heading"><div><span class="eyebrow" id="chapter">CHAPTER 01 / THE LONG NIGHT</span><h1 id="location">The quiet between.</h1></div><div class="weather"><span id="weather-icon">⋰</span><div id="weather-label">a gentle rain<span id="time-label">somewhere after midnight</span></div></div></div>
-      <div class="game-layout">
-        <section class="world-panel" aria-label="Interactive ASCII valley">
-          <div class="world-topline"><span><span class="live-dot"></span> THE HOLLOW</span><span id="world-coordinate">043 : 072</span></div>
-          <div class="canvas-wrap" id="canvas-wrap"><canvas id="world" tabindex="0" aria-label="ASCII landscape. Use arrow keys or W A S D to move, E to interact. You can also click or tap a place to walk there."></canvas><div class="scene-caption" id="scene-caption">even the longest night has little lights.</div>
-            <div class="intro" id="intro"><div class="intro-kicker">AN ASCII EXPLORATION</div><h2>Some nights,<br>just being here<br>is enough.</h2><p>Take a walk. Find the little things.<br>Let the world be soft for a moment.</p><button class="primary-button" id="begin">Step into the quiet <span>↗</span></button><span class="intro-footnote">~ 5 minutes · at your own pace</span></div>
-            <div class="interaction-hint" id="interaction-hint" hidden><kbd>E</kbd><span></span></div>
-            <button id="pause-indicator" class="pause-indicator" hidden>PAUSED · click to return</button>
-          </div>
-          <div class="world-footer"><span><i class="player-dot"></i> YOU ARE HERE</span><span>WANDER A LITTLE. NOTHING IS CHASING YOU.</span><button id="pause" class="text-button" aria-label="Pause game">Ⅱ</button></div>
-        </section>
-
-        <aside class="journal-panel"><div class="journal-title"><span class="eyebrow">YOUR POCKET OF LIGHT</span><span>✧</span></div><h2>Small things.<br>Still something.</h2><p class="journal-description">Some things don't fix the world.<br>They make it a little easier to stay.</p><div class="progress-row"><span id="count">00 / 05</span><span>little lights found</span></div><div class="progress-track"><div id="progress"></div></div>
-          <ol id="memories" class="memories"></ol>
-          <div class="journal-note"><span>“</span><p id="pocket-note">You don't have to feel hopeful<br>to follow a little light.</p><div>— a note to yourself</div></div>
-        </aside>
-      </div>
-
-      <section class="story-bar" aria-label="Story and next action"><span class="story-symbol" id="story-symbol">*</span><div class="story-copy" aria-live="polite"><span class="eyebrow" id="story-label">A MOMENT TO YOURSELF</span><p id="story-text">The world is asleep. You aren't. That's okay. There's a path, if you'd like to take it.</p></div><button id="story-action" class="story-action" hidden>Keep wandering <span>→</span></button></section>
-      <div class="below-world"><div class="controls"><span><kbd>W</kbd><span class="key-stack"><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span> / <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd> <span>move</span></span><span><kbd>E</kbd> interact</span><span><kbd>SPACE</kbd> breathe</span><span class="click-control">or click anywhere to wander</span></div><button class="text-button" id="restart">START AGAIN <span>↺</span></button></div>
-    </main>
-    <footer class="page-footer"><span>A SMALL GAME ABOUT THE THINGS THAT KEEP US HERE.</span><span>MADE OF CHARACTERS. FULL OF FEELING. <span class="footer-star">✳</span></span></footer>
-  </div>
-  <dialog id="help-dialog"><button class="close-dialog" id="close-help" aria-label="Close instructions">×</button><span class="eyebrow">WELCOME TO THE HOLLOW</span><h2>There's no wrong<br>way to be here.</h2><p>Wander through the valley and find five small comforts. The gold symbols mark things you can spend a moment with.</p><dl><div><dt>WASD / arrows</dt><dd>Take a walk</dd></div><div><dt>Click / tap</dt><dd>Walk to a place or an object</dd></div><div><dt>E / Enter</dt><dd>Interact when you're close</dd></div><div><dt>Space</dt><dd>Stop. Take a breath.</dd></div><div><dt>Esc</dt><dd>Pause the night</dd></div></dl><p>When you've found all five lights, find the bench across the stream. Morning will meet you there.</p><button class="primary-button" id="help-done">I'll take my time <span>↗</span></button></dialog>
-  <dialog id="reset-dialog"><span class="eyebrow">ANOTHER LITTLE JOURNEY</span><h2>Begin again?</h2><p>This will empty your pocket of light and take you back to the start of the path.</p><div class="dialog-actions"><button class="text-button" id="cancel-reset">Stay here</button><button class="primary-button" id="confirm-reset">Begin again ↗</button></div></dialog>
-  <noscript>This small ASCII world needs JavaScript to come to life. Please enable it to play Solace State.</noscript>
-</body>
-</html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#030303"><meta name="description" content="Solace State. A first-person ASCII walk through a rain-soaked Japanese backstreet. Find a little warmth on your way to morning.">
+<title>Solace State — after the rain</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='black'/%3E%3Ctext x='32' y='45' text-anchor='middle' font-size='42' fill='white'%3E%23%3C/text%3E%3C/svg%3E"><link rel="stylesheet" href="style.css"><script type="module" src="app.js"></script>
+</head><body>
+<main id="game" aria-label="First-person ASCII walking game">
+<canvas id="world" tabindex="0" aria-label="A Japanese street rendered entirely as ASCII characters. W A S D to walk, arrows or drag to look, E to interact."></canvas><div class="grain" aria-hidden="true"></div>
+<header class="hud"><div class="identity"><span class="title">SOLACE STATE</span><span class="separator">/</span><span id="district">雨のあと <span class="translation">AFTER THE RAIN</span></span></div><nav aria-label="Game settings"><button id="sound" aria-pressed="false">SOUND <span>OFF</span></button><button id="quality" aria-label="Change ASCII density">DENSITY <span>HIGH</span></button><button id="help">[ ? ]</button></nav></header>
+<div class="top-meta"><span id="coordinates">35° 40′ N &nbsp; 139° 42′ E</span><span id="clock">02:17 AM</span></div>
+<section class="intro" id="intro"><span class="intro-label">A FIRST-PERSON ASCII WALK</span><h1>Solace State<span>ソレイス・ステート</span></h1><p>The last train has gone.<br>The street is still awake.</p><button id="begin" disabled>[ preparing the night… ]</button><span class="intro-note">a few small comforts. a way toward morning.</span></section>
+<div class="crosshair" id="crosshair" hidden aria-hidden="true">+</div>
+<div id="interact-prompt" class="interact-prompt" hidden><button id="interact"><kbd>E</kbd><span id="interact-label">Stay a moment</span></button></div>
+<div class="narrative" id="narrative" aria-live="polite"><span id="narrative-label"></span><p id="narrative-text"></p><button id="continue" hidden>[ keep walking ↗ ]</button></div>
+<div class="breathing" id="breathing" hidden><span>breathe in</span><i></i></div>
+<footer class="bottom-hud"><div id="walk-controls"><span><kbd>W A S D</kbd> WALK</span><span><kbd>← →</kbd> / DRAG TO LOOK</span><span><kbd>E</kbd> NOTICE</span><span><kbd>SPACE</kbd> BREATHE</span></div><span id="pocket">· · · · <span>0 / 4 LITTLE LIGHTS</span></span></footer>
+<div class="mobile-controls" id="mobile-controls" hidden><div class="dpad"><button data-move="w" aria-label="Walk forward">↑</button><button data-move="a" aria-label="Step left">←</button><button data-move="s" aria-label="Walk back">↓</button><button data-move="d" aria-label="Step right">→</button></div><span>SWIPE TO LOOK</span></div>
+<div class="loading" id="loading">[ building a world out of characters… ]</div><div class="fatal-error" id="fatal-error" hidden><h2>A little trouble starting.</h2><p id="fatal-message"></p><button onclick="location.reload()">[ try again ]</button></div>
+</main>
+<dialog id="help-dialog"><button class="close" id="close-help" aria-label="Close instructions">×</button><span class="dialog-label">SOLACE STATE / HOW TO BE HERE</span><h2>A walk. Nothing more<br>than you can carry.</h2><p>You're on a quiet Japanese backstreet after the last train. Find four little comforts before following the street to the shrine at its end.</p><dl><div><dt>W A S D</dt><dd>Walk / sidestep</dd></div><div><dt>← → / drag</dt><dd>Look around</dd></div><div><dt>Click the street</dt><dd>Capture mouse to look freely</dd></div><div><dt>E / tap prompt</dt><dd>Notice something nearby</dd></div><div><dt>Space</dt><dd>Take a breath</dd></div><div><dt>Escape</dt><dd>Release mouse / pause</dd></div></dl><p class="small">Look for the vending machine, a little radio, a waiting cat, and a lantern. There is no timer. Progress stays in this browser.</p><div class="dialog-actions"><button id="restart">[ start again ]</button><button id="help-done">[ back to the street ]</button></div></dialog>
+<div class="pause-screen" id="pause-screen" hidden><span>THE NIGHT CAN WAIT.</span><button id="resume">[ keep walking ]</button></div><noscript>Enable JavaScript to walk through this ASCII world.</noscript></body></html>
