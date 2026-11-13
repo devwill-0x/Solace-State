@@ -1,28 +1,24 @@
-# Solace State — A Passing Dream
+# Solace State
 
-A first-person ASCII walk through a rain-soaked Japanese street. Wander freely, turn around, or watch the night gradually become morning. There are no notice prompts, collectibles, score counters or completion gates.
+A first-person ASCII walk through a rain-soaked Japanese street. The walking view is only the street: no HUD, labels, hands, player body, people, conversations, objectives, or collection prompts. The night gradually lightens into morning.
 
-Only the player and interface have the translucent rainbow treatment: a thin-film glass shader on the visible hands and body, colored ASCII at their edges, and blurred iridescent interface panels. Look down to see your body or press B to raise your hands. Other people and their close-up faces remain grayscale ASCII.
-
-Three people inhabit the street. Walking close and looking toward someone triggers a short subtitled conversation once per walk. Conversation close-ups use fine Unicode braille-dot line art. Nagi uses the portrait provided directly by the user; Ren and Aya use original vector illustrations converted into braille masks, with blinking and mouth animation. The style also references https://emojicombos.com/goth-subculture-ascii-art; no artwork from that page is bundled. Enter/Continue advances, Escape/Keep walking skips, and the Street conversations setting disables all encounters for uninterrupted walking. Dialogue is subtitled; audio is ambient rain, not spoken voices.
+The start/pause menu uses almost-clear glass (7% background tint, 3px blur) without a dark backdrop. Sound, text density, and restart live inside this menu. The menu is shown on first entry; subsequent visits resume the saved walk with no overlays.
 
 ## Controls
 
-- WASD: walk and sidestep.
+- WASD: walk and sidestep. Up/down arrows also walk.
 - Left/right arrows, dragging, or captured mouse: look around.
-- B or the diamond button: raise/lower translucent hands.
-- Enter or Continue: reveal/advance a conversation.
-- Escape: leave a conversation or pause.
-- Mobile: walking pad, swipe to look, and touch buttons.
+- Escape: open/close the menu.
+- Touch: drag the left half to walk, the right half to look. Tap with two fingers to open the menu. No visible controls cover the street.
 
-Progress, encounters and the conversation preference are saved in localStorage under `solace-dream-v3`. An interrupted cutscene returns to walking after reload.
+Position and elapsed time use the existing `solace-dream-v3` localStorage key. Older saves retain the walk position while discarded conversation data can no longer interrupt walking or create invisible collisions.
 
-## Run
+## Run and verify
 
-From this folder: `python -m http.server 4173 --directory dist`, then open http://localhost:4173.
+`python -m http.server 4173 --directory dist`
 
-Three.js r170 and its MIT license are included in dist/vendor. The project has no external runtime dependencies, images, font requests or build step. All artwork is procedural.
+`node --test tests/game.test.mjs`
 
-## Verify
+Movement tests cover the full street, physical boundaries, camera-relative movement, pause, and older saved-state recovery. Browser QA checks the empty walking UI, transparent menu, desktop/touch navigation, settings, and resume behavior.
 
-`node --test tests/game.test.mjs` covers a complete unrestricted walk in both directions, collisions, encounter eligibility, conversation progression and exit, disabled encounters and saved-state recovery. Browser QA additionally covers the colored hands, grayscale faces, subtitles, skip controls, settings, audio, density and mobile movement.
+Three.js r170 and its MIT license are included in dist/vendor. No external runtime requests or build step are required.

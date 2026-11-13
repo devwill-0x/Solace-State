@@ -1,22 +1,20 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#030303">
-<meta name="description" content="A dreamlike first-person ASCII walk. Translucent rainbow hands, rain-soaked Japanese streets, and fleeting conversations with strangers.">
-<title>Solace State — a passing dream</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='black'/%3E%3Ctext x='32' y='45' text-anchor='middle' font-size='42' fill='white'%3E%23%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css"><link rel="stylesheet" href="dream.css"><script type="module" src="app.js"></script></head>
-<body><main id="game" aria-label="Solace State, a dreamlike walking game">
-<canvas id="world" tabindex="0" aria-label="An ASCII Japanese street. WASD walks. Arrow keys or dragging looks around. B raises your translucent hands."></canvas><div class="grain" aria-hidden="true"></div>
-<header class="hud"><div class="identity glass"><i class="dream-orb" aria-hidden="true"></i><span class="title">SOLACE STATE</span><span class="separator">/</span><span id="district">夢の中</span></div><nav class="glass" aria-label="Game settings"><button id="sound" aria-pressed="false">SOUND <span>OFF</span></button><button id="quality" aria-label="Change ASCII density">DENSITY <span>HIGH</span></button><button id="help" aria-label="Controls and settings">[ ? ]</button></nav></header>
-<div class="top-meta"><span>NOT QUITE ASLEEP. NOT QUITE AWAKE.</span><span id="clock">SOMEWHERE AFTER MIDNIGHT</span></div>
-<section class="intro glass" id="intro"><span class="intro-label">A PASSING DREAM</span><h1>Solace State<span>雨のあと、夢の中</span></h1><p>Rain on a street you almost remember.<br>Your hands catch a light that isn't there.<br>For now, just walk.</p><button id="begin" disabled>Preparing the night…</button><span class="intro-note">wander. meet someone. stay a little.</span></section>
-<div class="crosshair" id="crosshair" hidden aria-hidden="true">·</div>
-<section id="cutscene" hidden aria-label="Character conversation"><div class="cinema-top"><span>A MOMENT IN PASSING</span><button id="skip-scene" class="glass">Keep walking <kbd>ESC</kbd></button></div><div class="subtitle glass"><div class="speaker-row"><span id="speaker"></span><span id="speaker-role"></span><span id="line-number"></span></div><p id="line-text" aria-live="polite"></p><button id="next-line">Continue <span>↗</span><kbd>ENTER</kbd></button></div></section>
-<footer class="bottom-hud"><div id="walk-controls" class="glass"><span><kbd>W A S D</kbd> WALK</span><span><kbd>← →</kbd> / DRAG TO LOOK</span><span><kbd>B</kbd> YOUR HANDS</span></div><button id="body-view" class="glass" aria-label="Raise or lower your translucent hands" aria-pressed="false">◇ <span>YOUR HANDS</span></button></footer>
-<div class="mobile-controls" id="mobile-controls" hidden><div class="dpad"><button data-move="w" aria-label="Walk forward">↑</button><button data-move="a" aria-label="Step left">←</button><button data-move="s" aria-label="Walk back">↓</button><button data-move="d" aria-label="Step right">→</button></div><span>SWIPE TO LOOK</span></div>
-<div class="loading" id="loading">[ a dream is taking shape… ]</div><div class="fatal-error glass" id="fatal-error" hidden><h2>A little trouble starting.</h2><p id="fatal-message"></p><button onclick="location.reload()">Try again</button></div>
+<meta name="description" content="Solace State. An uninterrupted first-person ASCII walk through a quiet, rain-soaked Japanese street.">
+<title>Solace State</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='black'/%3E%3Ctext x='32' y='45' text-anchor='middle' font-size='42' fill='white'%3E%23%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css"><script type="module" src="app.js"></script></head>
+<body><main id="game" aria-label="Solace State, a quiet walking game">
+<canvas id="world" tabindex="0" aria-label="ASCII Japanese street. WASD walks. Drag or arrow keys look around. Escape opens the menu. On touchscreens, drag the left half to move and the right half to look; tap with two fingers for the menu."></canvas>
+<div id="loading" role="status">Preparing the street?</div>
+<div class="glass fatal-error" id="fatal-error" hidden><h1>A little trouble starting.</h1><p id="fatal-message"></p><button onclick="location.reload()">Try again</button></div>
 </main>
-<dialog id="help-dialog" class="glass"><button class="close" id="close-help" aria-label="Close settings">×</button><span class="dialog-label">SOLACE STATE / A PASSING DREAM</span><h2>You have nowhere<br>you need to be.</h2><p>Walk the street at your own pace. Your hands and body catch rainbow light. Look down to see yourself, or press B to raise your hands.</p><dl><div><dt>W A S D</dt><dd>Walk / sidestep</dd></div><div><dt>← → / drag</dt><dd>Look around</dd></div><div><dt>Click the street</dt><dd>Look freely with your mouse</dd></div><div><dt>B / ◇ button</dt><dd>Raise your hands</dd></div><div><dt>Enter / tap Continue</dt><dd>Advance a conversation</dd></div><div><dt>Escape</dt><dd>Leave a scene / pause</dd></div></dl>
-<label class="setting"><span>Street conversations<small>Brief, subtitled encounters as you pass people.<br>Turn off for uninterrupted walking.</small></span><input id="encounters" type="checkbox" checked></label>
-<div class="dialog-actions"><button id="restart">Start a fresh walk</button><button id="help-done">Back to the dream ↗</button></div></dialog>
-<div class="pause-screen" id="pause-screen" hidden><span>THE NIGHT CAN WAIT.</span><button id="resume" class="glass">Keep walking ↗</button></div>
+<dialog id="menu" class="glass" aria-labelledby="menu-title">
+<h1 id="menu-title">Solace State</h1>
+<p class="desktop-help">WASD to walk. Drag or use the arrow keys to look.<br>Escape brings you back here.</p>
+<p class="touch-help">Left thumb to walk. Right thumb to look.<br>Tap with two fingers to open this menu.</p>
+<button id="begin" class="primary" disabled>Preparing the street?</button>
+<div class="settings"><button id="sound" aria-pressed="false">Rain audio <span>Off</span></button><button id="quality" aria-label="Change ASCII density">Text detail <span>Fine</span></button></div>
+<button id="restart" hidden>Start a fresh walk</button>
+</dialog>
 <noscript>Enable JavaScript to walk through this ASCII world.</noscript></body></html>
