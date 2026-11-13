@@ -23,4 +23,6 @@ test('corrupt saves are sanitized and analog movement preserves low speeds',()=>
  const before=s.player.z;walk(s,.25,0,.1);assert.ok(before-s.player.z>0&&before-s.player.z<.1);
 });
 
-test('portal changes realms and saved meadow positions restore',()=>{const s=createState();s.started=true;s.player.x=2.8;s.player.z=-2;walk(s,0,1,.1);assert.equal(s.realm,'meadow');assert.equal(createState(serialize(s)).realm,'meadow');s.player.z=-85.1;walk(s,-1,0,.1);assert.equal(s.realm,'street');});
+test('portal changes realms and saved meadow positions restore',()=>{const s=createState();s.started=true;s.player.x=3.0;s.player.z=-2;walk(s,0,1,.1);assert.equal(s.realm,'meadow');assert.equal(createState(serialize(s)).realm,'meadow');s.player.z=-85.1;s.player.yaw=0;walk(s,-1,0,.1);assert.equal(s.realm,'street');});
+
+test('crossing preserves lateral offset, pitch and heading in both directions',()=>{const s=createState();s.started=true;s.player={x:3.1,z:-1.6,yaw:-Math.PI/2,pitch:.2};walk(s,1,0,.02);assert.equal(s.realm,'meadow');assert.ok(Math.abs(s.player.x-.4)<1e-8);assert.ok(Math.abs(s.player.yaw)<1e-8);assert.equal(s.player.pitch,.2);walk(s,-1,0,.02);assert.equal(s.realm,'street');assert.ok(Math.abs(s.player.x-3.1)<1e-8);assert.ok(Math.abs(s.player.z+1.6)<1e-8);});

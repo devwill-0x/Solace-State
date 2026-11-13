@@ -15,9 +15,11 @@ export function walk(s,f,r,dt){
  if(!s.started||s.paused||!Number.isFinite(dt)||dt<=0)return false;
  const p=s.player,l=Math.max(1,Math.hypot(f,r)),v=2.45*Math.min(dt,.1);
  const dx=(-Math.sin(p.yaw)*f+Math.cos(p.yaw)*r)/l*v,dz=(-Math.cos(p.yaw)*f-Math.sin(p.yaw)*r)/l*v;
- const allowed=(x,z)=>s.realm==='meadow'?Math.abs(x)<28&&z>-140&&z<-82:canWalk(x,z);
+ const allowed=(x,z)=>s.realm==='meadow'?Math.abs(x)<28&&z>-140&&z<-82:(canWalk(x,z)||(x<3.4&&x>3&&Math.abs(z+2)<1.02));
  let moved=false;if(allowed(p.x+dx,p.z)){p.x+=dx;moved||=dx!==0;}if(allowed(p.x,p.z+dz)){p.z+=dz;moved||=dz!==0;}
- if(s.realm!=='meadow'&&p.x>2.85&&Math.abs(p.z+2)<.9&&dx>0){s.realm='meadow';p.x=0;p.z=-87;p.yaw=0;}else if(s.realm==='meadow'&&p.z>-85&&Math.abs(p.x)<1.8){s.realm='street';p.x=2.5;p.z=-2;p.yaw=Math.PI/2;}
+ if(s.realm!=='meadow'&&p.x>=3.12&&p.x-dx<3.12&&Math.abs(p.z+2)<1.02){const x=p.x;p.x=p.z+2;p.z=-85-(x-3.12);p.yaw+=Math.PI/2;s.realm='meadow';}
+ else if(s.realm==='meadow'&&p.z>=-85&&p.z-dz<-85&&Math.abs(p.x)<1.02){const x=p.x;p.x=3.12-(p.z+85);p.z=x-2;p.yaw-=Math.PI/2;s.realm='street';}
+
  if(moved)s.distance+=Math.hypot(dx,dz);return moved;
 }
 export function serialize(s){return {player:{...s.player},started:s.started,elapsed:s.elapsed,realm:s.realm};}

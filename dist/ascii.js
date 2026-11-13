@@ -16,17 +16,17 @@ export class Ascii {
   }
   draw(state,time,dt){
     const source=this.street.render(state,time,dt,this.reduced),cols=this.cols,rows=this.rows;this.read.drawImage(source,0,0,cols,rows);const data=this.read.getImageData(0,0,cols,rows).data,ctx=this.ctx;
-    ctx.fillStyle=state.realm==='meadow'?'#245b79':'#030303';ctx.fillRect(0,0,this.width,this.height);
+    ctx.fillStyle='#030303';ctx.fillRect(0,0,this.width,this.height);
     ctx.font=`${this.ch*.94}px Consolas,monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
     for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
       const i=(y*cols+x)*4,luma=data[i]*.2126+data[i+1]*.7152+data[i+2]*.0722;
       // Dither the shading slightly, so plaster and rain have the grain of a print.
       const noise=((x*17+y*31)%13-6)*.7,value=Math.max(0,Math.min(255,Math.round((luma-18)*1.38+noise)));
       if(value<7)continue;
-      if(state.realm!=='meadow'&&Math.max(data[i],data[i+1],data[i+2])-Math.min(data[i],data[i+1],data[i+2])>25){ctx.fillStyle=`rgb(${data[i]},${data[i+1]},${data[i+2]})`;ctx.fillText(' .,:;/*%&#@'[Math.min(10,Math.floor(Math.pow(value/255,.71)*11))],(x+.5)*this.cw,(y+.5)*this.ch);continue;}
+      if(Math.max(data[i],data[i+1],data[i+2])-Math.min(data[i],data[i+1],data[i+2])>25){ctx.fillStyle=`rgb(${data[i]},${data[i+1]},${data[i+2]})`;ctx.fillText(' .,:;/*%&#@'[Math.min(10,Math.floor(Math.pow(value/255,.71)*11))],(x+.5)*this.cw,(y+.5)*this.ch);continue;}
       ctx.drawImage(this.atlas,(value%16)*this.tw,Math.floor(value/16)*this.th,this.tw,this.th,x*this.cw,y*this.ch,this.cw,this.ch);
     }
-    if(state.realm==='meadow'){ctx.globalCompositeOperation='multiply';ctx.globalAlpha=.9;ctx.imageSmoothingEnabled=true;ctx.drawImage(this.sample,0,0,this.width,this.height);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.imageSmoothingEnabled=false;}
+
   }
   toggle(){this.quality=1-this.quality;this.resize();return this.quality===0?'HIGH':'LOW';}
 }
