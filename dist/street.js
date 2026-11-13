@@ -148,8 +148,13 @@ export class Street {
     for(let i=0;i<18;i++){const a=i*2.4;add(new THREE.SphereGeometry(2.2,12,9),[0x359c42,0x64b943,0x258449][i%3],5+Math.cos(a)*2.5,6.5+rnd(i)*3,-108+Math.sin(a)*2.5);}
     for(let i=0;i<650;i++){const x=(rnd(i+200)-.5)*65,z=-87-rnd(i+900)*65;if(Math.abs(x)<2&&z>-95)continue;const y=.18+rnd(i)*.4;add(new THREE.CylinderGeometry(.025,.025,y,4),0x328839,x,y/2,z);const color=[0xff63ac,0xffdf48,0x9965ff,0xffffff,0xff895b][i%5];for(let k=0;k<5;k++){const a=k*Math.PI*2/5;add(new THREE.SphereGeometry(.095,5,4),color,x+Math.cos(a)*.1,y,z+Math.sin(a)*.1);}add(new THREE.SphereGeometry(.07,5,4),0xffd647,x,y+.03,z);}
     for(let i=0;i<12;i++)add(new THREE.SphereGeometry(3,10,7),0xffffff,(rnd(i+40)-.5)*90,18+rnd(i)*10,-110-rnd(i+60)*70).scale.set(2,.45,1);
-    const portal=(scene,z)=>{const ring=new THREE.Mesh(new THREE.TorusGeometry(1.7,.13,10,48),new THREE.MeshBasicMaterial({color:0xb7a1ff}));ring.position.set(0,1.8,z);ring.scale.y=1.2;scene.add(ring);const face=new THREE.Mesh(new THREE.CircleGeometry(1.65,48),new THREE.MeshBasicMaterial({color:scene===this.scene?0x62cddb:0x626080,transparent:true,opacity:.4,side:THREE.DoubleSide}));face.position.copy(ring.position);face.scale.y=1.2;scene.add(face);return ring;};
-    this.streetPortal=portal(this.scene,-84);this.fieldPortal=portal(this.meadow,-85);
+    const view=texture(192,320,(c,w,h)=>{c.fillStyle='#65c8ff';c.fillRect(0,0,w,h);c.fillStyle='#65bd35';c.fillRect(0,h*.52,w,h);c.fillStyle='#82522d';c.fillRect(124,105,12,115);c.fillStyle='#329a38';for(let i=0;i<9;i++){c.beginPath();c.arc(130+Math.cos(i*2)*26,110+Math.sin(i*2)*25,30,0,7);c.fill();}for(let i=0;i<100;i++){c.fillStyle=['#ff72c4','#ffe74f','#a893ff'][i%3];c.fillRect(rnd(i)*w,180+rnd(i+10)*140,3,4);}});
+    const portal=(scene,x,z,angle,color,map)=>{const group=new THREE.Group();group.position.set(x,1.9,z);group.rotation.y=angle;scene.add(group);
+      for(let i=0;i<3;i++){const rim=new THREE.Mesh(new THREE.TorusGeometry(1.05+i*.055,i===0?.075:.035,10,64),new THREE.MeshBasicMaterial({color:i===0?0xe9fcff:color,transparent:i>0,opacity:i===0?1:.55}));rim.scale.y=1.7;group.add(rim);}
+      const face=new THREE.Mesh(new THREE.CircleGeometry(1.04,64),new THREE.MeshBasicMaterial({map,color:map?0xffffff:0x232b40,side:THREE.DoubleSide}));face.scale.y=1.7;face.position.z=-.015;group.add(face);
+      const light=new THREE.PointLight(color,12,5);light.position.z=.3;group.add(light);return group;};
+    this.streetPortal=portal(this.scene,3.12,-2,-Math.PI/2,0x00cfff,view);this.fieldPortal=portal(this.meadow,0,-85,0,0xff922f,null);
+
   }
   resize(w,h,aspect){this.renderer.setSize(w,h,false);this.camera.aspect=aspect;this.camera.updateProjectionMatrix();}
   render(state,time,dt,reduced=false){
@@ -161,6 +166,6 @@ export class Street {
     this.camera.position.set(p.x,1.64+bob,p.z);this.camera.rotation.set(p.pitch,p.yaw,0);this.sun.visible=this.dawn>.15;
     if(!reduced&&!state.paused){const pos=this.rain.geometry.attributes.position;for(let i=0;i<pos.count;i+=2){let y=pos.getY(i)-dt*5;if(y<0)y=11;pos.setY(i,y);pos.setY(i+1,y-.22);}pos.needsUpdate=true;}
     this.rain.material.opacity=.36*(1-this.dawn);this.cat.rotation.y=.2+Math.sin(time*.6)*.08;
-    this.streetPortal.rotation.z=Math.sin(time*.5)*.04;this.fieldPortal.rotation.z=-Math.sin(time*.5)*.04;this.renderer.render(state.realm==='meadow'?this.meadow:this.scene,this.camera);return this.renderer.domElement;
+    this.renderer.render(state.realm==='meadow'?this.meadow:this.scene,this.camera);return this.renderer.domElement;
   }
 }

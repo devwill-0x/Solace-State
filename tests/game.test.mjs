@@ -23,4 +23,4 @@ test('corrupt saves are sanitized and analog movement preserves low speeds',()=>
  const before=s.player.z;walk(s,.25,0,.1);assert.ok(before-s.player.z>0&&before-s.player.z<.1);
 });
 
-test('portal changes realms and saved meadow positions restore',()=>{const s=createState();s.started=true;s.player.z=-83.9;walk(s,1,0,.1);assert.equal(s.realm,'meadow');assert.equal(createState(serialize(s)).realm,'meadow');s.player.z=-85.1;walk(s,-1,0,.1);assert.equal(s.realm,'street');});
+test('portal changes realms and saved meadow positions restore',()=>{const s=createState();s.started=true;s.player.x=2.8;s.player.z=-2;walk(s,0,1,.1);assert.equal(s.realm,'meadow');assert.equal(createState(serialize(s)).realm,'meadow');s.player.z=-85.1;walk(s,-1,0,.1);assert.equal(s.realm,'street');});
