@@ -11,7 +11,7 @@ export class Street {
     this.scene.add(new THREE.AmbientLight(0xffffff,.56));this.sky=new THREE.HemisphereLight(0xb6b6b6,0x303030,1.15);this.scene.add(this.sky);
     const moon=new THREE.DirectionalLight(0xededed,1.1);moon.position.set(-3,14,9);this.scene.add(moon);
     this.wallTexture=texture(128,128,(c,w,h)=>{c.fillStyle='#b7b7b7';c.fillRect(0,0,w,h);for(let i=0;i<3500;i++){const v=90+rnd(i)*125;c.fillStyle=`rgb(${v},${v},${v})`;c.fillRect(rnd(i+9)*w,rnd(i+81)*h,1,1);}for(let y=0;y<h;y+=32){c.fillStyle='#888';c.fillRect(0,y,w,1);}});
-    this.buildGround();for(let i=0;i<12;i++){this.buildHouse(-1,i);this.buildHouse(1,i);}this.buildPoles();this.buildDetails();this.buildShrine();this.flush();this.buildRain();
+    this.buildGround();for(let i=0;i<12;i++){this.buildHouse(-1,i);this.buildHouse(1,i);}this.buildPoles();this.buildDetails();this.buildShrine();this.flush();this.buildRain();this.buildMeadow();
   }
   box(x,y,z,w,h,d,color=0x777777){this.boxes.push({p:[x,y,z],s:[w,h,d],color});}
   pipe(a,b,r=.04,color=0x777777){this.pipes.push({a,b,r,color});}
@@ -138,6 +138,19 @@ export class Street {
     const wireGeo=new THREE.BufferGeometry();wireGeo.setAttribute('position',new THREE.Float32BufferAttribute(this.wires,3));this.scene.add(new THREE.LineSegments(wireGeo,new THREE.LineBasicMaterial({color:0x747474})));this.boxes=null;this.pipes=null;this.wires=null;
   }
   buildRain(){const count=550,positions=new Float32Array(count*6);for(let i=0;i<count;i++){const x=(rnd(i)-.5)*18,y=rnd(i+4)*11,z=10-rnd(i+9)*110;positions.set([x,y,z,x-.015,y-.22,z],i*6);}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(positions,3));const material=new THREE.LineBasicMaterial({color:0x787878,transparent:true,opacity:.36});this.rain=new THREE.LineSegments(geo,material);this.scene.add(this.rain);}
+  buildMeadow(){
+    this.meadow=new THREE.Scene();this.meadow.background=new THREE.Color(0x58baff);this.meadow.fog=new THREE.Fog(0x83ceff,45,100);
+    this.meadow.add(new THREE.HemisphereLight(0xffffff,0x63952a,2.4));
+    const sun=new THREE.DirectionalLight(0xfff0c5,2);sun.position.set(-12,25,-95);this.meadow.add(sun);
+    const ground=new THREE.Mesh(new THREE.PlaneGeometry(220,220),new THREE.MeshLambertMaterial({color:0x56ae32}));ground.rotation.x=-Math.PI/2;ground.position.z=-110;this.meadow.add(ground);
+    const add=(geo,color,x,y,z)=>{const m=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color}));m.position.set(x,y,z);this.meadow.add(m);return m;};
+    add(new THREE.CylinderGeometry(.48,.85,7,10),0x865530,5,3.5,-108);
+    for(let i=0;i<18;i++){const a=i*2.4;add(new THREE.SphereGeometry(2.2,12,9),[0x359c42,0x64b943,0x258449][i%3],5+Math.cos(a)*2.5,6.5+rnd(i)*3,-108+Math.sin(a)*2.5);}
+    for(let i=0;i<650;i++){const x=(rnd(i+200)-.5)*65,z=-87-rnd(i+900)*65;if(Math.abs(x)<2&&z>-95)continue;const y=.18+rnd(i)*.4;add(new THREE.CylinderGeometry(.025,.025,y,4),0x328839,x,y/2,z);const color=[0xff63ac,0xffdf48,0x9965ff,0xffffff,0xff895b][i%5];for(let k=0;k<5;k++){const a=k*Math.PI*2/5;add(new THREE.SphereGeometry(.095,5,4),color,x+Math.cos(a)*.1,y,z+Math.sin(a)*.1);}add(new THREE.SphereGeometry(.07,5,4),0xffd647,x,y+.03,z);}
+    for(let i=0;i<12;i++)add(new THREE.SphereGeometry(3,10,7),0xffffff,(rnd(i+40)-.5)*90,18+rnd(i)*10,-110-rnd(i+60)*70).scale.set(2,.45,1);
+    const portal=(scene,z)=>{const ring=new THREE.Mesh(new THREE.TorusGeometry(1.7,.13,10,48),new THREE.MeshBasicMaterial({color:0xb7a1ff}));ring.position.set(0,1.8,z);ring.scale.y=1.2;scene.add(ring);const face=new THREE.Mesh(new THREE.CircleGeometry(1.65,48),new THREE.MeshBasicMaterial({color:scene===this.scene?0x62cddb:0x626080,transparent:true,opacity:.4,side:THREE.DoubleSide}));face.position.copy(ring.position);face.scale.y=1.2;scene.add(face);return ring;};
+    this.streetPortal=portal(this.scene,-84);this.fieldPortal=portal(this.meadow,-85);
+  }
   resize(w,h,aspect){this.renderer.setSize(w,h,false);this.camera.aspect=aspect;this.camera.updateProjectionMatrix();}
   render(state,time,dt,reduced=false){
     
@@ -148,6 +161,6 @@ export class Street {
     this.camera.position.set(p.x,1.64+bob,p.z);this.camera.rotation.set(p.pitch,p.yaw,0);this.sun.visible=this.dawn>.15;
     if(!reduced&&!state.paused){const pos=this.rain.geometry.attributes.position;for(let i=0;i<pos.count;i+=2){let y=pos.getY(i)-dt*5;if(y<0)y=11;pos.setY(i,y);pos.setY(i+1,y-.22);}pos.needsUpdate=true;}
     this.rain.material.opacity=.36*(1-this.dawn);this.cat.rotation.y=.2+Math.sin(time*.6)*.08;
-    this.renderer.render(this.scene,this.camera);return this.renderer.domElement;
+    this.streetPortal.rotation.z=Math.sin(time*.5)*.04;this.fieldPortal.rotation.z=-Math.sin(time*.5)*.04;this.renderer.render(state.realm==='meadow'?this.meadow:this.scene,this.camera);return this.renderer.domElement;
   }
 }
