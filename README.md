@@ -4,7 +4,7 @@ A first-person ASCII walk through a rain-soaked Japanese street. Wander freely, 
 
 Only the player and interface have the translucent rainbow treatment: a thin-film glass shader on the visible hands and body, colored ASCII at their edges, and blurred iridescent interface panels. Look down to see your body or press B to raise your hands. Other people and their close-up faces remain grayscale ASCII.
 
-Three people inhabit the street. Walking close and looking toward someone triggers a short subtitled conversation once per walk. Close-up faces blink and animate their mouths. Enter/Continue advances, Escape/Keep walking skips, and the Street conversations setting disables all encounters for uninterrupted walking. Dialogue is subtitled; audio is ambient rain, not spoken voices.
+Three people inhabit the street. Walking close and looking toward someone triggers a short subtitled conversation once per walk. Conversation close-ups use fine Unicode braille-dot line art. Nagi uses the portrait provided directly by the user; Ren and Aya use original vector illustrations converted into braille masks, with blinking and mouth animation. The style also references https://emojicombos.com/goth-subculture-ascii-art; no artwork from that page is bundled. Enter/Continue advances, Escape/Keep walking skips, and the Street conversations setting disables all encounters for uninterrupted walking. Dialogue is subtitled; audio is ambient rain, not spoken voices.
 
 ## Controls
 

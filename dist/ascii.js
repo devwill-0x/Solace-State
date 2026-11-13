@@ -1,6 +1,7 @@
+import {DotPortraits} from './dot-portraits.js';
 // Every visible surface is rebuilt from printable characters, like a luminance print.
 export class Ascii {
-  constructor(canvas,street){this.canvas=canvas;this.ctx=canvas.getContext('2d',{alpha:false});this.street=street;this.sample=document.createElement('canvas');this.read=this.sample.getContext('2d',{willReadFrequently:true,alpha:false});this.quality=0;this.reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;this.resize();window.addEventListener('resize',()=>this.resize());}
+  constructor(canvas,street){this.canvas=canvas;this.ctx=canvas.getContext('2d',{alpha:false});this.street=street;this.portraits=new DotPortraits();this.sample=document.createElement('canvas');this.read=this.sample.getContext('2d',{willReadFrequently:true,alpha:false});this.quality=0;this.reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;this.resize();window.addEventListener('resize',()=>this.resize());}
   resize(){
     const w=innerWidth,h=innerHeight;this.width=w;this.height=h;const target=this.quality===0?(w<600?3.35:5.25):(w<600?5:7.7);
     this.cols=Math.max(70,Math.min(350,Math.round(w/target)));this.cw=w/this.cols;this.ch=this.cw*1.85;this.rows=Math.ceil(h/this.ch);
@@ -21,6 +22,7 @@ export class Ascii {
     }this.colorAtlas=color;
   }
   draw(state,time,dt){
+    if(state.conversation){this.portraits.draw(this.ctx,this.width,this.height,state,time,this.reduced);return;}
     const source=this.street.render(state,time,dt,this.reduced),cols=this.cols,rows=this.rows;this.read.drawImage(source,0,0,cols,rows);const data=this.read.getImageData(0,0,cols,rows).data,ctx=this.ctx;
     ctx.fillStyle='#030303';ctx.fillRect(0,0,this.width,this.height);
     for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){

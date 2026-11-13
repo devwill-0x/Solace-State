@@ -121,21 +121,3 @@ export class Cast{
   this.arms.forEach((a,i)=>{a.position.x=(i?1:-1)*.24*Math.min(1,aspect*.9);a.scale.x=Math.min(1,aspect*1.4);a.rotation.x=state.inspect?.65:(state.moving&&!reduced?Math.sin(state.distance*6+i*Math.PI)*.08:0);});
  }
 }
-export class Portrait{
- constructor(){
-  this.scene=new T.Scene();this.scene.background=new T.Color(0x020202);
-  this.camera=new T.PerspectiveCamera(34,1,.05,10);
-  this.scene.add(new T.AmbientLight(0xffffff,.7));
-  const key=new T.DirectionalLight(0xffffff,2.2);key.position.set(-2,3,3);this.scene.add(key);
-  const fill=new T.DirectionalLight(0xaaaaaa,.65);fill.position.set(2,1,2);this.scene.add(fill);
-  const rim=new T.DirectionalLight(0xffffff,2);rim.position.set(1,2,-1);this.scene.add(rim);
-  this.people=PEOPLE.map(p=>{const a=person(p.style);this.scene.add(a.root);return a;});
- }
- render(renderer,state,time,aspect,reduced){
-  const c=state.conversation,index=PEOPLE.findIndex(p=>p.id===c.id),isTalking=PEOPLE[index].lines[c.line].speaker!=='You';
-  this.people.forEach((p,i)=>{p.root.visible=i===index;if(i===index)p.animate(time,isTalking,reduced);});
-  this.camera.aspect=aspect;this.camera.position.set(aspect<.8?0:.035,1.59,aspect<.8?1.42:1.18);
-  this.camera.lookAt(0,1.53,0);this.camera.updateProjectionMatrix();renderer.render(this.scene,this.camera);
- }
-}
-
