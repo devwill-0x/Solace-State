@@ -1,13 +1,45 @@
-export const stops=[
-{id:'coffee',x:3.05,z:-5.5,title:'A little warmth',action:'Buy a warm coffee',symbol:'o',text:'The machine hums like it has been waiting for you. The can is warm between your hands. For a while, that is all you need to hold.',after:'Still warm. Still here.'},
-{id:'radio',x:-3.1,z:-25,title:'Someone still singing',action:'Listen to the little radio',symbol:'~',text:'A radio behind the shutters. Someone is singing quietly along, a little out of tune. You cannot see them. Somehow the street feels less empty.',after:'You carry a little of the melody with you.'},
-{id:'cat',x:-2.45,z:-43,title:'An unlikely friend',action:'Say hello to the cat',symbol:'&',text:'The cat has no opinion about the kind of day you have had. It leans into your hand. For a moment, you are exactly where you should be.',after:'A small purr. An ordinary miracle.'},
-{id:'lantern',x:2.8,z:-64,title:'A light left on',action:'Notice the lantern',symbol:'*',text:'Someone left this light on long after closing. You decide, without any evidence, that they left it on for anyone who needed it. Tonight, that includes you.',after:'A little kindness does not need an explanation.'}];
-export const destination={id:'morning',x:0,z:-86,action:'Stay until morning',symbol:'*',title:'The other side of the night'};
+export const PEOPLE=[
+ {id:'nagi',name:'Nagi',role:'THE NIGHT CLERK',x:-1.85,z:-7,style:0,lines:[
+ {speaker:'Nagi',text:"The machine still thinks it's winter. Every coffee comes out warm."},
+ {speaker:'You',text:"Maybe it knows something we don't."},
+ {speaker:'Nagi',text:"Then I'll leave it like that."}]},
+ {id:'ren',name:'Ren',role:'WAITING FOR THE FIRST TRAIN',x:1.85,z:-36,style:1,lines:[
+ {speaker:'Ren',text:"I missed the last train. Best thing that happened all day."},
+ {speaker:'You',text:"How's that?"},
+ {speaker:'Ren',text:"Listen. You can hear the rain all the way down the street."}]},
+ {id:'aya',name:'Aya',role:'THE EARLY RISER',x:-1.9,z:-67,style:2,lines:[
+ {speaker:'Aya',text:"I come here before the city remembers to be loud."},
+ {speaker:'You',text:"Does it always look like this?"},
+ {speaker:'Aya',text:"Only when somebody stops long enough to see it."}]}
+];
 export const START={x:.1,z:7,yaw:0,pitch:0};
-export function canWalk(x,z){if(!Number.isFinite(x)||!Number.isFinite(z)||z>10||z< -91||Math.abs(x)>3.22)return false;if(x>2.65&&z> -8.8&&z< -6.3)return false;if(x< -2.85&&z> -34&&z< -32)return false;return true;}
-export function createState(saved){const p=saved?.player,valid=p&&canWalk(p.x,p.z)&&Number.isFinite(p.yaw)&&Number.isFinite(p.pitch);const found=new Set(Array.isArray(saved?.found)?saved.found.filter(id=>stops.some(s=>s.id===id)):[]);return {player:valid?{...p,pitch:Math.max(-.65,Math.min(.65,p.pitch))}:{...START},found,started:!!saved?.started,ended:!!saved?.ended&&found.size===stops.length,paused:false,distance:0};}
-export function walk(state,forward,strafe,dt){if(!state.started||state.paused||state.ended||!Number.isFinite(dt)||dt<=0)return false;const p=state.player,len=Math.hypot(forward,strafe)||1,speed=2.45*Math.min(dt,.1),dx=(-Math.sin(p.yaw)*forward+Math.cos(p.yaw)*strafe)/len*speed,dz=(-Math.cos(p.yaw)*forward-Math.sin(p.yaw)*strafe)/len*speed;let moved=false;if(canWalk(p.x+dx,p.z)){p.x+=dx;moved||=dx!==0;}if(canWalk(p.x,p.z+dz)){p.z+=dz;moved||=dz!==0;}if(moved)state.distance+=Math.hypot(dx,dz);return moved;}
-export function nearby(state){return [...stops,destination].filter(s=>Math.hypot(s.x-state.player.x,s.z-state.player.z)<2.7).sort((a,b)=>Math.hypot(a.x-state.player.x,a.z-state.player.z)-Math.hypot(b.x-state.player.x,b.z-state.player.z))[0]||null;}
-export function notice(state){if(!state.started||state.paused||state.ended)return null;const item=nearby(state);if(!item)return null;if(item.id==='morning'){if(state.found.size<stops.length)return {...item,locked:true,text:'The shrine waits at the end of the lane. Behind you, the street still holds a few little comforts. There is time to find them.'};state.ended=true;return {...item,ending:true,text:'Nothing is magically fixed. But the sky is getting lighter. You have a little warmth, a song, a small purr, and a light left on. For this morning, that is enough.'};}if(state.found.has(item.id))return {...item,revisited:true,text:item.after};state.found.add(item.id);return item;}
-export function serialize(state){return {player:{...state.player},found:[...state.found],started:state.started,ended:state.ended};}
+export function canWalk(x,z){
+ if(!Number.isFinite(x)||!Number.isFinite(z)||z>10||z< -87.3||Math.abs(x)>3.22)return false;
+ if(x>2.65&&z> -8.8&&z< -6.3)return false;
+ if(x< -2.85&&z> -34&&z< -32)return false;
+ return !PEOPLE.some(p=>Math.hypot(p.x-x,p.z-z)<.46);
+}
+export function createState(saved){
+ const p=saved?.player,valid=p&&canWalk(p.x,p.z)&&Number.isFinite(p.yaw)&&Number.isFinite(p.pitch);
+ return {player:valid?{x:p.x,z:p.z,yaw:p.yaw,pitch:Math.max(-1.2,Math.min(.7,p.pitch))}:{...START},
+ started:!!saved?.started,paused:false,distance:0,moving:false,conversation:null,
+ met:new Set(Array.isArray(saved?.met)?saved.met.filter(id=>PEOPLE.some(p=>p.id===id)):[]),
+ conversations:saved?.conversations!==false,elapsed:Number.isFinite(saved?.elapsed)?Math.max(0,Math.min(1800,saved.elapsed)):0};
+}
+export function walk(s,f,r,dt){
+ if(!s.started||s.paused||s.conversation||!Number.isFinite(dt)||dt<=0)return false;
+ const p=s.player,l=Math.hypot(f,r)||1,v=2.45*Math.min(dt,.1);
+ const dx=(-Math.sin(p.yaw)*f+Math.cos(p.yaw)*r)/l*v,dz=(-Math.cos(p.yaw)*f-Math.sin(p.yaw)*r)/l*v;
+ let moved=false;if(canWalk(p.x+dx,p.z)){p.x+=dx;moved||=dx!==0;}if(canWalk(p.x,p.z+dz)){p.z+=dz;moved||=dz!==0;}
+ if(moved)s.distance+=Math.hypot(dx,dz);return moved;
+}
+export function candidate(s){
+ if(!s.started||s.paused||s.conversation||!s.conversations)return null;
+ return PEOPLE.find(n=>{if(s.met.has(n.id))return false;const dx=n.x-s.player.x,dz=n.z-s.player.z,d=Math.hypot(dx,dz);return d<2.65&&(-Math.sin(s.player.yaw)*dx-Math.cos(s.player.yaw)*dz)/d>.38;})||null;
+}
+export function startConversation(s,id){
+ if(!s.started||s.conversation||s.paused||!s.conversations||!PEOPLE.some(p=>p.id===id)||s.met.has(id))return false;
+ s.met.add(id);s.conversation={id,line:0,age:0};return true;
+}
+export function nextLine(s){if(!s.conversation)return;const p=PEOPLE.find(p=>p.id===s.conversation.id);if(++s.conversation.line>=p.lines.length)s.conversation=null;else s.conversation.age=0;}
+export function serialize(s){return {player:{...s.player},started:s.started,met:[...s.met],conversations:s.conversations,elapsed:s.elapsed};}

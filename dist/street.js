@@ -1,5 +1,6 @@
 // The scene is never shown as pixels: its lighting is sampled into ASCII by ascii.js.
 import * as THREE from './vendor/three.module.js';
+import {Cast,Portrait} from './characters.js';
 const rnd=(n)=>{const v=Math.sin(n*127.13+37.7)*43758.5453;return v-Math.floor(v);};
 function texture(w,h,paint){const c=document.createElement('canvas');c.width=w;c.height=h;paint(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;}
 export class Street {
@@ -11,7 +12,7 @@ export class Street {
     this.scene.add(new THREE.AmbientLight(0xffffff,.56));this.sky=new THREE.HemisphereLight(0xb6b6b6,0x303030,1.15);this.scene.add(this.sky);
     const moon=new THREE.DirectionalLight(0xededed,1.1);moon.position.set(-3,14,9);this.scene.add(moon);
     this.wallTexture=texture(128,128,(c,w,h)=>{c.fillStyle='#b7b7b7';c.fillRect(0,0,w,h);for(let i=0;i<3500;i++){const v=90+rnd(i)*125;c.fillStyle=`rgb(${v},${v},${v})`;c.fillRect(rnd(i+9)*w,rnd(i+81)*h,1,1);}for(let y=0;y<h;y+=32){c.fillStyle='#888';c.fillRect(0,y,w,1);}});
-    this.buildGround();for(let i=0;i<12;i++){this.buildHouse(-1,i);this.buildHouse(1,i);}this.buildPoles();this.buildDetails();this.buildShrine();this.flush();this.buildRain();
+    this.buildGround();for(let i=0;i<12;i++){this.buildHouse(-1,i);this.buildHouse(1,i);}this.buildPoles();this.buildDetails();this.buildShrine();this.flush();this.buildRain();this.cast=new Cast(this.scene);this.portrait=new Portrait();
   }
   box(x,y,z,w,h,d,color=0x777777){this.boxes.push({p:[x,y,z],s:[w,h,d],color});}
   pipe(a,b,r=.04,color=0x777777){this.pipes.push({a,b,r,color});}
@@ -140,11 +141,13 @@ export class Street {
   buildRain(){const count=550,positions=new Float32Array(count*6);for(let i=0;i<count;i++){const x=(rnd(i)-.5)*18,y=rnd(i+4)*11,z=10-rnd(i+9)*110;positions.set([x,y,z,x-.015,y-.22,z],i*6);}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(positions,3));const material=new THREE.LineBasicMaterial({color:0x787878,transparent:true,opacity:.36});this.rain=new THREE.LineSegments(geo,material);this.scene.add(this.rain);}
   resize(w,h,aspect){this.renderer.setSize(w,h,false);this.camera.aspect=aspect;this.camera.updateProjectionMatrix();}
   render(state,time,dt,reduced=false){
-    this.dawn+=(Number(state.ended)-this.dawn)*Math.min(dt*.18,.1);this.sky.intensity=1.15+this.dawn*1.3;
+    if(state.conversation){this.portrait.render(this.renderer,state,time,this.camera.aspect,reduced);return this.renderer.domElement;}
+    this.cast.update(state,time,reduced,this.camera.aspect);
+    this.dawn+=(Math.min(1,Math.max(0,(state.elapsed-180)/240))-this.dawn)*Math.min(dt*.18,.1);this.sky.intensity=1.15+this.dawn*1.3;
     const bg=Math.round(this.dawn*35);this.scene.background.setHex((bg<<16)|(bg<<8)|bg);this.scene.fog.color.copy(this.scene.background);
     const p=state.player,bob=state.moving&&!reduced?Math.sin(state.distance*7)*.018:0;
-    this.endAmount+=(Number(state.ended)-this.endAmount)*Math.min(dt*.32,.1);const end=this.endAmount;
-    this.camera.position.set(p.x*(1-end),1.64+bob,p.z+(-79-p.z)*end);this.camera.rotation.set(p.pitch*(1-end)+.13*end,p.yaw*(1-end),0);this.sun.visible=this.dawn>.15;
+    
+    this.camera.position.set(p.x,1.64+bob,p.z);this.camera.rotation.set(p.pitch,p.yaw,0);this.sun.visible=this.dawn>.15;
     if(!reduced&&!state.paused){const pos=this.rain.geometry.attributes.position;for(let i=0;i<pos.count;i+=2){let y=pos.getY(i)-dt*5;if(y<0)y=11;pos.setY(i,y);pos.setY(i+1,y-.22);}pos.needsUpdate=true;}
     this.rain.material.opacity=.36*(1-this.dawn);this.cat.rotation.y=.2+Math.sin(time*.6)*.08;
     this.renderer.render(this.scene,this.camera);return this.renderer.domElement;

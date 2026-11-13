@@ -1,6 +1,34 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import {createState,walk,notice,nearby,serialize,stops,destination,canWalk} from '../dist/game.js';
-test('a continuous first-person walk reaches all four comforts and the shrine',()=>{const s=createState();s.started=true;for(const stop of [...stops,destination]){while(s.player.z>stop.z+.1)assert.ok(walk(s,1,0,1/30));s.player.x=stop.x;assert.equal(nearby(s).id,stop.id);assert.equal(notice(s).id,stop.id);s.player.x=0;}assert.equal(s.found.size,4);assert.equal(s.ended,true);});
-test('collision keeps the player out of shops and machines without blocking the lane',()=>{assert.equal(canWalk(4,-2),false);assert.equal(canWalk(3,-7),false);for(let z=9;z> -90;z--)assert.ok(canWalk(0,z));const s=createState();s.started=true;s.player.x=3.2;walk(s,0,1,.1);assert.equal(s.player.x,3.2);});
-test('the ending needs all four distinct comforts and revisiting does not duplicate them',()=>{const s=createState();s.started=true;s.player={...s.player,...destination};assert.equal(notice(s).locked,true);assert.equal(s.ended,false);s.player={...s.player,...stops[0]};notice(s);assert.equal(notice(s).revisited,true);assert.equal(s.found.size,1);});
-test('movement follows camera direction, diagonal speed is normalized, pause stops movement',()=>{const a=createState(),b=createState();a.started=b.started=true;walk(a,1,0,.1);walk(b,1,1,.1);assert.ok(Math.abs(a.distance-b.distance)<.001);a.player.yaw=Math.PI/2;const x=a.player.x;walk(a,1,0,.1);assert.ok(a.player.x<x);a.paused=true;const old={...a.player};walk(a,1,0,.1);assert.deepEqual(a.player,old);});
-test('saved walks roundtrip and corrupted progress cannot unlock morning',()=>{const s=createState();s.started=true;s.found.add('radio');assert.deepEqual(serialize(createState(serialize(s))),serialize(s));const bad=createState({found:['cat','cat','fake'],player:{x:0,z:0,yaw:NaN,pitch:0},ended:true});assert.equal(bad.ended,false);assert.equal(bad.found.size,1);assert.equal(bad.player.z,7);});
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {createState,walk,canWalk,candidate,startConversation,nextLine,serialize,PEOPLE} from '../dist/game.js';
+test('the full street is freely walkable in both directions without meeting anyone',()=>{
+ const s=createState();s.started=true;s.conversations=false;
+ for(let i=0;i<390;i++)walk(s,1,0,.1);
+ assert.ok(s.player.z<-86);assert.equal(s.met.size,0);assert.equal(s.conversation,null);
+ for(let i=0;i<390;i++)walk(s,-1,0,.1);
+ assert.ok(s.player.z>6);assert.equal('found' in serialize(s),false);assert.equal('ended' in serialize(s),false);
+});
+test('encounters require proximity and facing and can be completely disabled',()=>{
+ const s=createState();s.started=true;s.player={x:0,z:-5.4,yaw:.4,pitch:0};
+ assert.equal(candidate(s).id,'nagi');s.player.yaw=Math.PI;assert.equal(candidate(s),null);
+ s.player.yaw=.4;s.conversations=false;assert.equal(candidate(s),null);assert.equal(startConversation(s,'nagi'),false);
+});
+test('a conversation advances, returns to walking and never repeats',()=>{
+ const s=createState();s.started=true;
+ assert.equal(startConversation(s,'nagi'),true);assert.equal(walk(s,1,0,.1),false);
+ nextLine(s);assert.equal(s.conversation.line,1);nextLine(s);nextLine(s);
+ assert.equal(s.conversation,null);assert.equal(walk(s,1,0,.1),true);assert.equal(startConversation(s,'nagi'),false);
+});
+test('skipped scenes and settings survive reload; interrupted scenes do not trap the player',()=>{
+ const s=createState();s.started=true;startConversation(s,'ren');s.conversations=false;
+ const copy=createState(serialize(s));assert.equal(copy.conversation,null);assert.equal(copy.conversations,false);assert.ok(copy.met.has('ren'));assert.ok(walk(copy,1,0,.1));
+});
+test('walls and people are solid, movement is camera-relative, pause works',()=>{
+ assert.equal(canWalk(4,0),false);assert.equal(canWalk(PEOPLE[0].x,PEOPLE[0].z),false);
+ const s=createState();s.started=true;s.player.yaw=Math.PI/2;const x=s.player.x;walk(s,1,0,.1);assert.ok(s.player.x<x);
+ s.paused=true;const old={...s.player};walk(s,1,0,.1);assert.deepEqual(s.player,old);
+});
+test('corrupt saves are sanitized without reintroducing collectible objectives',()=>{
+ const s=createState({player:{x:999,z:NaN,yaw:Infinity,pitch:9},met:['fake','aya','aya'],elapsed:-99});
+ assert.deepEqual(s.player,{x:.1,z:7,yaw:0,pitch:0});assert.equal(s.met.size,1);assert.equal(s.elapsed,0);
+});

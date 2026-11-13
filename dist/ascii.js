@@ -12,6 +12,13 @@ export class Ascii {
     const ramps=[' .,:;/*%&#@',' .,:;/*%&@#',' .,:;/*%#&@',' .,:;/*%&#@'];
     for(let i=0;i<256;i++){const v=i/255,level=Math.min(10,Math.floor(Math.pow(v,.71)*11)),char=ramps[i%4][level],gray=Math.min(225,Math.round(80+Math.pow(v,.45)*150));c.fillStyle=`rgb(${gray},${gray},${Math.round(gray*.97)})`;c.fillText(char,(i%16+.5)*this.tw,(Math.floor(i/16)+.5)*this.th);}
     this.atlas=a;
+    const color=document.createElement('canvas');color.width=this.tw*24;color.height=this.th*16;
+    const cc=color.getContext('2d');cc.font=c.font;cc.textAlign='center';cc.textBaseline='middle';
+    for(let hue=0;hue<24;hue++)for(let shade=0;shade<16;shade++){
+      const v=shade/15,char=ramps[0][Math.min(10,Math.floor(Math.pow(v,.71)*11))];
+      cc.fillStyle='hsl('+(hue*15)+',72%,'+(62+v*20)+'%)';
+      cc.fillText(char,(hue+.5)*this.tw,(shade+.5)*this.th);
+    }this.colorAtlas=color;
   }
   draw(state,time,dt){
     const source=this.street.render(state,time,dt,this.reduced),cols=this.cols,rows=this.rows;this.read.drawImage(source,0,0,cols,rows);const data=this.read.getImageData(0,0,cols,rows).data,ctx=this.ctx;
@@ -21,7 +28,12 @@ export class Ascii {
       // Dither the shading slightly, so plaster and rain have the grain of a print.
       const noise=((x*17+y*31)%13-6)*.7,value=Math.max(0,Math.min(255,Math.round((luma-18)*1.38+noise)));
       if(value<7)continue;
-      ctx.drawImage(this.atlas,(value%16)*this.tw,Math.floor(value/16)*this.th,this.tw,this.th,x*this.cw,y*this.ch,this.cw,this.ch);
+      const r=data[i],g=data[i+1],b=data[i+2];
+      if(Math.max(r,g,b)-Math.min(r,g,b)>12){
+        let angle=Math.atan2(Math.sqrt(3)*(g-b),2*r-g-b);if(angle<0)angle+=Math.PI*2;
+        const hue=Math.round(angle/(Math.PI*2)*24)%24,shade=Math.min(15,Math.round(value/17));
+        ctx.drawImage(this.colorAtlas,hue*this.tw,shade*this.th,this.tw,this.th,x*this.cw,y*this.ch,this.cw,this.ch);
+      }else ctx.drawImage(this.atlas,(value%16)*this.tw,Math.floor(value/16)*this.th,this.tw,this.th,x*this.cw,y*this.ch,this.cw,this.ch);
     }
   }
   toggle(){this.quality=1-this.quality;this.resize();return this.quality===0?'HIGH':'LOW';}
