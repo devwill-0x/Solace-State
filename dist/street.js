@@ -1,3 +1,4 @@
+import {buildBlossom} from './blossom.js';
 // The scene is never shown as pixels: its lighting is sampled into ASCII by ascii.js.
 import * as THREE from './vendor/three.module.js';
 const rnd=(n)=>{const v=Math.sin(n*127.13+37.7)*43758.5453;return v-Math.floor(v);};
@@ -154,10 +155,15 @@ export class Street {
       for(let i=0;i<3;i++){const rim=new THREE.Mesh(new THREE.TorusGeometry(1.05+i*.055,i===0?.075:.035,10,64),new THREE.MeshBasicMaterial({color:i===0?0xe9fcff:color,transparent:i>0,opacity:i===0?1:.55}));rim.scale.y=1.7;group.add(rim);}
       const face=new THREE.Mesh(new THREE.CircleGeometry(1.04,64),this.portalMaterial);face.scale.y=1.7;face.position.z=0;group.add(face);group.userData.face=face;
       const light=new THREE.PointLight(color,12,5);light.position.z=.3;group.add(light);return group;};
+    this.blossom=buildBlossom();
     this.streetPortal=portal(this.scene,3.12,-2,-Math.PI/2,0x00cfff,null);this.fieldPortal=portal(this.meadow,0,-85,0,0xff922f,null);
+    this.blossomTarget=new THREE.WebGLRenderTarget(256,256);this.blossomMaterial=this.portalMaterial.clone();this.blossomMaterial.uniforms.view.value=this.blossomTarget.texture;
+    this.blossomEntry=portal(this.scene,3.12,-18,-Math.PI/2,0xff73c5,null);this.blossomExit=portal(this.blossom,0,-85,0,0xff73c5,null);
+    this.blossomEntry.userData.face.material=this.blossomMaterial;this.blossomExit.userData.face.material=this.blossomMaterial;
+    this.portalPairs=[{realm:'meadow',z:-2,scene:this.meadow,entry:this.streetPortal,exit:this.fieldPortal,target:this.portalTarget},{realm:'blossom',z:-18,scene:this.blossom,entry:this.blossomEntry,exit:this.blossomExit,target:this.blossomTarget}];
 
   }
-  resize(w,h,aspect){this.renderer.setSize(w,h,false);this.portalTarget.setSize(w,h);this.portalMaterial.uniforms.size.value.set(w,h);this.camera.aspect=aspect;this.camera.updateProjectionMatrix();}
+  resize(w,h,aspect){this.renderer.setSize(w,h,false);this.portalTarget.setSize(w,h);this.blossomTarget.setSize(w,h);this.blossomMaterial.uniforms.size.value.set(w,h);this.portalMaterial.uniforms.size.value.set(w,h);this.camera.aspect=aspect;this.camera.updateProjectionMatrix();}
   render(state,time,dt,reduced=false){
     
     this.dawn+=(Math.min(1,Math.max(0,(state.elapsed-180)/240))-this.dawn)*Math.min(dt*.18,.1);this.sky.intensity=1.15+this.dawn*1.3;
@@ -167,13 +173,17 @@ export class Street {
     this.camera.position.set(p.x,1.64+bob,p.z);this.camera.rotation.set(p.pitch,p.yaw,0);this.sun.visible=this.dawn>.15;
     if(!reduced&&!state.paused){const pos=this.rain.geometry.attributes.position;for(let i=0;i<pos.count;i+=2){let y=pos.getY(i)-dt*5;if(y<0)y=11;pos.setY(i,y);pos.setY(i+1,y-.22);}pos.needsUpdate=true;}
     this.rain.material.opacity=.36*(1-this.dawn);this.cat.rotation.y=.2+Math.sin(time*.6)*.08;
-    const remote=this.portalCamera;remote.copy(this.camera);remote.rotation.order='YXZ';
-    if(state.realm==='meadow'){remote.position.set(3.12-(p.z+85),this.camera.position.y,p.x-2);remote.rotation.set(p.pitch,p.yaw-Math.PI/2,0);}
-    else{remote.position.set(p.z+2,this.camera.position.y,-85-(p.x-3.12));remote.rotation.set(p.pitch,p.yaw+Math.PI/2,0);}
-    this.streetPortal.userData.face.visible=false;this.fieldPortal.userData.face.visible=false;
-    this.renderer.clippingPlanes=[state.realm==='meadow'?new THREE.Plane(new THREE.Vector3(-1,0,0),3.12):new THREE.Plane(new THREE.Vector3(0,0,-1),-85)];
-    this.renderer.setRenderTarget(this.portalTarget);this.renderer.render(state.realm==='meadow'?this.scene:this.meadow,remote);this.renderer.setRenderTarget(null);this.renderer.clippingPlanes=[];
-    this.streetPortal.userData.face.visible=true;this.fieldPortal.userData.face.visible=true;
-    this.renderer.render(state.realm==='meadow'?this.meadow:this.scene,this.camera);return this.renderer.domElement;
+    const remote=this.portalCamera;
+    for(const pair of this.portalPairs){pair.entry.userData.face.visible=false;pair.exit.userData.face.visible=false;}
+    for(const pair of this.portalPairs){if(state.realm!=='street'&&state.realm!==pair.realm)continue;
+      remote.copy(this.camera);remote.rotation.order='YXZ';
+      if(state.realm!=='street'){remote.position.set(3.12-(p.z+85),this.camera.position.y,p.x+pair.z);remote.rotation.set(p.pitch,p.yaw-Math.PI/2,0);}
+      else{remote.position.set(p.z-pair.z,this.camera.position.y,-85-(p.x-3.12));remote.rotation.set(p.pitch,p.yaw+Math.PI/2,0);}
+      this.renderer.clippingPlanes=[state.realm!=='street'?new THREE.Plane(new THREE.Vector3(-1,0,0),3.12):new THREE.Plane(new THREE.Vector3(0,0,-1),-85)];
+      this.renderer.setRenderTarget(pair.target);this.renderer.render(state.realm!=='street'?this.scene:pair.scene,remote);
+    }
+    this.renderer.setRenderTarget(null);this.renderer.clippingPlanes=[];
+    for(const pair of this.portalPairs){pair.entry.userData.face.visible=true;pair.exit.userData.face.visible=true;}
+    this.renderer.render(state.realm==='blossom'?this.blossom:state.realm==='meadow'?this.meadow:this.scene,this.camera);return this.renderer.domElement;
   }
 }
