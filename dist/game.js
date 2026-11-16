@@ -1,12 +1,16 @@
 export const START={x:.1,z:7,yaw:0,pitch:0};
 export function canWalk(x,z){
- if(!Number.isFinite(x)||!Number.isFinite(z)||z>10||z< -37.3||Math.abs(x)>3.22)return false;
+ if(!Number.isFinite(x)||!Number.isFinite(z)||z>10||z< -37.3)return false;
+ const plaza=(x< -3.22&&x> -9.85&&z< -9.2&&z> -16.8)||(x>3.22&&x<9.85&&z< -18.2&&z> -25.8);
+ if(Math.abs(x)>3.22&&!plaza)return false;
+ if(Math.hypot(x+7,z+13)<.6||Math.hypot(x-7,z+22)<2.2)return false;
+ if((x> -7.2&&x< -4.8&&z> -10.5&&z< -9.5)||(x> -9.2&&x< -6.8&&z> -16.2&&z< -15.2)||(x>5.8&&x<8.2&&z> -25.7&&z< -24.7))return false;
  if(x>2.65&&z> -8.8&&z< -6.3)return false;
  if(x< -2.85&&z> -34&&z< -32)return false;
  return true;
 }
 export function createState(saved){
- const field=['meadow','blossom'].includes(saved?.realm);const p=saved?.player?{...saved.player,z:Math.max(field?-118:-37,Math.min(field?-82.1:10,saved.player.z)),x:Math.max(field?-19:-3.2,Math.min(field?19:3.2,saved.player.x))}:null,valid=p&&(['meadow','blossom'].includes(saved?.realm)?(Math.abs(p.x)<20&&p.z>-119&&p.z<-82):canWalk(p.x,p.z))&&Number.isFinite(p.yaw)&&Number.isFinite(p.pitch);
+ const field=['meadow','blossom'].includes(saved?.realm);const p=saved?.player?{...saved.player,z:Math.max(field?-118:-37,Math.min(field?-82.1:10,saved.player.z)),x:Math.max(field?-19:-9.8,Math.min(field?19:9.8,saved.player.x))}:null,valid=p&&(['meadow','blossom'].includes(saved?.realm)?(Math.abs(p.x)<20&&p.z>-119&&p.z<-82):canWalk(p.x,p.z))&&Number.isFinite(p.yaw)&&Number.isFinite(p.pitch);
  return {player:valid?{x:p.x,z:p.z,yaw:p.yaw,pitch:Math.max(-1.2,Math.min(.7,p.pitch))}:{...START},
  realm:['meadow','blossom'].includes(saved?.realm)?saved.realm:'street',started:!!saved?.started,paused:false,distance:0,moving:false,
  elapsed:Number.isFinite(saved?.elapsed)?Math.max(0,Math.min(1800,saved.elapsed)):0};

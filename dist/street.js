@@ -1,3 +1,4 @@
+import {buildNeighborhood} from './neighborhood.js';
 import {PassengerRide,parkedCar} from './ride.js';
 import {batchStatic} from './batch.js';
 import {buildBlossom} from './blossom.js';
@@ -14,7 +15,7 @@ export class Street {
     this.scene.add(new THREE.AmbientLight(0xffffff,.56));this.sky=new THREE.HemisphereLight(0xb6b6b6,0x303030,1.15);this.scene.add(this.sky);
     const moon=new THREE.DirectionalLight(0xededed,1.1);moon.position.set(-3,14,9);this.scene.add(moon);
     this.wallTexture=texture(128,128,(c,w,h)=>{c.fillStyle='#b7b7b7';c.fillRect(0,0,w,h);for(let i=0;i<3500;i++){const v=90+rnd(i)*125;c.fillStyle=`rgb(${v},${v},${v})`;c.fillRect(rnd(i+9)*w,rnd(i+81)*h,1,1);}for(let y=0;y<h;y+=32){c.fillStyle='#888';c.fillRect(0,y,w,1);}});
-    this.buildGround();for(let i=0;i<5;i++){this.buildHouse(-1,i);this.buildHouse(1,i);}this.buildPoles();this.buildDetails();this.buildShrine();this.flush();this.buildRain();this.buildMeadow();parkedCar(this.scene);this.rideScene=new PassengerRide();batchStatic(this.rideScene.scene);this.frustum=new THREE.Frustum();this.viewProjection=new THREE.Matrix4();
+    this.buildGround();for(let i=0;i<5;i++){if(i!==2)this.buildHouse(-1,i);if(i!==3)this.buildHouse(1,i);}this.buildPoles();this.buildDetails();this.buildShrine();buildNeighborhood(this);this.flush();this.buildRain();this.buildMeadow();parkedCar(this.scene);this.rideScene=new PassengerRide();batchStatic(this.rideScene.scene);this.frustum=new THREE.Frustum();this.viewProjection=new THREE.Matrix4();
   }
   box(x,y,z,w,h,d,color=0x777777){this.boxes.push({p:[x,y,z],s:[w,h,d],color});}
   pipe(a,b,r=.04,color=0x777777){this.pipes.push({a,b,r,color});}
