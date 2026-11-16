@@ -12,6 +12,8 @@ export class Ascii {
     const ramps=[' .,:;/*%&#@',' .,:;/*%&@#',' .,:;/*%#&@',' .,:;/*%&#@'];
     for(let i=0;i<256;i++){const v=i/255,level=Math.min(10,Math.floor(Math.pow(v,.71)*11)),char=ramps[i%4][level],gray=Math.min(225,Math.round(80+Math.pow(v,.45)*150));c.fillStyle=`rgb(${gray},${gray},${Math.round(gray*.97)})`;c.fillText(char,(i%16+.5)*this.tw,(Math.floor(i/16)+.5)*this.th);}
     this.atlas=a;
+    this.colors=document.createElement('canvas');this.colors.width=this.tw*11;this.colors.height=this.th*64;const cc=this.colors.getContext('2d');cc.font=c.font;cc.textAlign='center';cc.textBaseline='middle';for(let color=0;color<64;color++){cc.fillStyle=`rgb(${(color>>4)*64+42},${((color>>2)&3)*64+42},${(color&3)*64+42})`;for(let k=0;k<11;k++)cc.fillText(ramps[0][k],(k+.5)*this.tw,(color+.5)*this.th);}
+
 
   }
   draw(state,time,dt){
@@ -23,7 +25,7 @@ export class Ascii {
       // Dither the shading slightly, so plaster and rain have the grain of a print.
       const noise=((x*17+y*31)%13-6)*.7,value=Math.max(0,Math.min(255,Math.round((luma-18)*1.38+noise)));
       if(value<7)continue;
-      if(Math.max(data[i],data[i+1],data[i+2])-Math.min(data[i],data[i+1],data[i+2])>25){ctx.fillStyle=`rgb(${data[i]},${data[i+1]},${data[i+2]})`;ctx.fillText(' .,:;/*%&#@'[Math.min(10,Math.floor(Math.pow(value/255,.71)*11))],(x+.5)*this.cw,(y+.5)*this.ch);continue;}
+      if(Math.max(data[i],data[i+1],data[i+2])-Math.min(data[i],data[i+1],data[i+2])>25){const color=((data[i]>>6)<<4)|((data[i+1]>>6)<<2)|(data[i+2]>>6),level=Math.min(10,Math.floor(Math.pow(value/255,.71)*11));ctx.drawImage(this.colors,level*this.tw,color*this.th,this.tw,this.th,x*this.cw,y*this.ch,this.cw,this.ch);continue;}
       ctx.drawImage(this.atlas,(value%16)*this.tw,Math.floor(value/16)*this.th,this.tw,this.th,x*this.cw,y*this.ch,this.cw,this.ch);
     }
 

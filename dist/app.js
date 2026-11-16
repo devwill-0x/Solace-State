@@ -1,4 +1,4 @@
-import {createState,walk,serialize} from './game.js';
+import {createState,walk,serialize,startRide,endRide,updateRide} from './game.js';
 const $=id=>document.getElementById(id),canvas=$('world'),menu=$('menu'),storageKey='solace-dream-v3',keys=new Set(),touches=new Map();
 let saved;try{saved=JSON.parse(localStorage.getItem(storageKey));}catch{}
 let state=createState(saved),ascii,time=0,last=0,renderAge=0,saveAge=0,drag=null,twoTap=null,audio=null,muted=true;
@@ -8,11 +8,12 @@ function clearInput(){keys.clear();drag=null;touches.clear();twoTap=null;touchMo
 function soundLevel(){if(audio)audio.master.gain.setTargetAtTime(muted||state.paused?0:.24,audio.ctx.currentTime,.3);}
 function setMenu(open){
  if(!open&&!ascii)return;
- clearInput();state.paused=open;
- if(open){if(document.pointerLockElement)document.exitPointerLock();$('begin').textContent=ascii?(state.started?'Keep walking':'Walk into the night'):'Preparing the street?';$('restart').hidden=!state.started;if(!menu.open)menu.showModal();}
+ clearInput();state.paused=open;$('leave-ride').hidden=!state.ride;
+ if(open){if(document.pointerLockElement)document.exitPointerLock();$('begin').textContent=ascii?(state.started?(state.ride?'Continue the drive':'Keep walking'):'Walk into the night'):'Preparing the street?';$('restart').hidden=!state.started;if(!menu.open)menu.showModal();}
  else{state.started=true;if(menu.open)menu.close();canvas.focus({preventScroll:true});}
  soundLevel();save();
 }
+$('leave-ride').onclick=()=>{endRide(state);setMenu(false);};
 $('begin').onclick=()=>setMenu(false);
 menu.addEventListener('cancel',e=>{e.preventDefault();if(state.started)setMenu(false);});
 $('restart').onclick=()=>{state=createState();setMenu(false);};
@@ -81,9 +82,11 @@ function frame(ms){
  if(!state.paused){time+=dt;if(state.started)state.elapsed+=dt;}
  if(state.started&&!state.paused){
   if(keys.has('arrowleft'))state.player.yaw+=dt*1.4;if(keys.has('arrowright'))state.player.yaw-=dt*1.4;
+  state.sprinting=keys.has('shift')||Math.abs(touchMove.forward)>.98;
   state.moving=walk(state,Number(keys.has('w')||keys.has('arrowup'))-Number(keys.has('s')||keys.has('arrowdown'))+touchMove.forward,Number(keys.has('d'))-Number(keys.has('a'))+touchMove.right,dt);
+  updateRide(state,dt);if(startRide(state))clearInput();
  }else state.moving=false;
- saveAge+=dt;if(saveAge>1){save();saveAge=0;}
+ saveAge+=dt;if(saveAge>5){save();saveAge=0;}
  renderAge+=dt;if(renderAge>=1/30){ascii.draw(state,time,state.paused?0:renderAge);renderAge=0;}
  requestAnimationFrame(frame);
 }

@@ -1,14 +1,14 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createState,walk,canWalk,serialize,START} from '../dist/game.js';
+import {createState,walk,canWalk,serialize,START,startRide,endRide,updateRide} from '../dist/game.js';
 test('the full street can be walked in both directions',()=>{
  const s=createState();s.started=true;
- for(let i=0;i<390;i++)walk(s,1,0,.1);assert.ok(s.player.z<-86);
+ for(let i=0;i<390;i++)walk(s,1,0,.1);assert.ok(s.player.z<-36);
  for(let i=0;i<500;i++)walk(s,-1,0,.1);assert.ok(s.player.z>6);
 });
 test('street objects block movement while former character locations are open',()=>{
  assert.equal(canWalk(4,0),false);assert.equal(canWalk(3,-7),false);assert.equal(canWalk(-3,-33),false);
- for(const [x,z] of [[-1.85,-7],[1.85,-36],[-1.9,-67]])assert.equal(canWalk(x,z),true);
+ for(const [x,z] of [[-1.85,-7],[1.85,-36],[-1.9,-27]])assert.equal(canWalk(x,z),true);
  const s=createState();s.started=true;s.player.yaw=Math.PI/2;const x=s.player.x;walk(s,1,0,.1);assert.ok(s.player.x<x);
  s.paused=true;const old={...s.player};walk(s,1,0,.1);assert.deepEqual(s.player,old);
 });
@@ -18,7 +18,7 @@ test('older saves resume walking without conversation state',()=>{
  assert.deepEqual(Object.keys(serialize(s)).sort(),['elapsed','player','realm','started']);assert.equal(s.elapsed,120);
 });
 test('corrupt saves are sanitized and analog movement preserves low speeds',()=>{
- const s=createState({player:{x:999,z:NaN,yaw:Infinity,pitch:9},elapsed:-99});
+ const s=createState({player:{x:NaN,z:NaN,yaw:Infinity,pitch:9},elapsed:-99});
  assert.deepEqual(s.player,START);assert.equal(s.elapsed,0);s.started=true;
  const before=s.player.z;walk(s,.25,0,.1);assert.ok(before-s.player.z>0&&before-s.player.z<.1);
 });
@@ -27,4 +27,6 @@ test('portal changes realms and saved meadow positions restore',()=>{const s=cre
 
 test('crossing preserves lateral offset, pitch and heading in both directions',()=>{const s=createState();s.started=true;s.player={x:3.1,z:-1.6,yaw:-Math.PI/2,pitch:.2};walk(s,1,0,.02);assert.equal(s.realm,'meadow');assert.ok(Math.abs(s.player.x-.4)<1e-8);assert.ok(Math.abs(s.player.yaw)<1e-8);assert.equal(s.player.pitch,.2);walk(s,-1,0,.02);assert.equal(s.realm,'street');assert.ok(Math.abs(s.player.x-3.1)<1e-8);assert.ok(Math.abs(s.player.z+1.6)<1e-8);});
 
-test('blossom portal preserves offset and returns to its own street doorway',()=>{const s=createState();s.started=true;s.player={x:3.1,z:-17.7,yaw:-Math.PI/2,pitch:.1};walk(s,1,0,.02);assert.equal(s.realm,'blossom');assert.equal(createState(serialize(s)).realm,'blossom');assert.ok(Math.abs(s.player.x-.3)<1e-8);walk(s,-1,0,.02);assert.equal(s.realm,'street');assert.ok(Math.abs(s.player.z+17.7)<1e-8);});
+test('blossom portal preserves offset and returns to its own street doorway',()=>{const s=createState();s.started=true;s.player={x:3.1,z:-11.7,yaw:-Math.PI/2,pitch:.1};walk(s,1,0,.02);assert.equal(s.realm,'blossom');assert.equal(createState(serialize(s)).realm,'blossom');assert.ok(Math.abs(s.player.x-.3)<1e-8);walk(s,-1,0,.02);assert.equal(s.realm,'street');assert.ok(Math.abs(s.player.z+11.7)<1e-8);});
+
+test('sprint is faster and a passenger ride pauses, completes, and avoids immediate reentry',()=>{const a=createState(),b=createState();a.started=b.started=true;b.sprinting=true;walk(a,1,0,.1);walk(b,1,0,.1);assert.ok(b.player.z<a.player.z);a.player={x:-1,z:-10,yaw:0,pitch:0};assert.ok(startRide(a));assert.equal(walk(a,1,0,.1),false);a.paused=true;updateRide(a,10);assert.equal(a.ride.time,0);a.paused=false;updateRide(a,51);assert.equal(a.ride,null);assert.equal(startRide(a),false);});

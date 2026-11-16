@@ -1,0 +1,14 @@
+import * as THREE from './vendor/three.module.js';
+const box=(g,x,y,z,w,h,d,color)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color}));m.position.set(x,y,z);g.add(m);return m;};
+export function parkedCar(scene){const g=new THREE.Group();g.position.set(-2,0,-10);scene.add(g);box(g,0,.55,0,1.4,.65,3,0x8ba1ad);box(g,0,1.05,0,1.25,.55,1.6,0x314854);box(g,0,1.4,0,1.35,.1,1.8,0xb8c7cd);for(const x of [-.72,.72])for(const z of [-.9,.9]){const w=new THREE.Mesh(new THREE.CylinderGeometry(.3,.3,.18,12),new THREE.MeshLambertMaterial({color:0x181b20}));w.rotation.z=Math.PI/2;w.position.set(x,.3,z);g.add(w);}for(const x of [-.45,.45])box(g,x,.65,-1.52,.3,.2,.03,0xffefbf);return g;}
+export class PassengerRide{
+ constructor(){this.scene=new THREE.Scene();this.scene.background=new THREE.Color(0xf4c7bb);this.scene.fog=new THREE.Fog(0xe1c9ca,60,210);this.scene.add(new THREE.HemisphereLight(0xffe2d2,0x497a58,2.5));const sun=new THREE.DirectionalLight(0xffdfaa,2);sun.position.set(-30,45,-140);this.scene.add(sun);
+ box(this.scene,0,-.12,-200,500,.2,700,0x69966c);box(this.scene,0,.005,-200,6,.025,700,0x4a505c);for(let i=0;i<95;i++){box(this.scene,0,.025,-i*7,.13,.02,2.5,0xeadab8);for(const x of [-3.1,3.1])box(this.scene,x,.03,-i*7,.12,.03,7,0xdbdbcc);}
+ box(this.scene,40,-.02,-200,55,.04,650,0x70b7cb);
+ for(let i=0;i<100;i++){const side=i%2?1:-1,x=side*(7+(i%4)*2),z=-i*5;box(this.scene,x,1.8,z,.35,3.6,.35,0x67514b);const c=new THREE.Mesh(new THREE.IcosahedronGeometry(2.3,1),new THREE.MeshLambertMaterial({color:i%3?0xe8a2c5:0x5a9b68}));c.position.set(x,4,z);this.scene.add(c);}
+ for(let i=0;i<28;i++){const h=20+(i%5)*5;const m=new THREE.Mesh(new THREE.ConeGeometry(24,h,7),new THREE.MeshLambertMaterial({color:[0x888ca7,0xa99bb1,0x727f98][i%3]}));m.position.set((i%2?1:-1)*(65+i%4*10),h/2,-i*20);this.scene.add(m);}
+ this.car=new THREE.Group();this.scene.add(this.car);box(this.car,0,.48,-1.2,2.2,.4,.65,0x27343c);box(this.car,0,1.95,-.3,2.4,.15,3.1,0x3d444b);for(const x of [-1.12,1.12]){box(this.car,x,1.2,-1.45,.09,1.5,.12,0x737d85);box(this.car,x,.4,0,.12,.7,2.8,0x3d4c55);}box(this.car,0,1.64,-1.43,.4,.13,.1,0x959da5);
+ box(this.car,-.58,.7,.22,.5,.8,.35,0x4d5665);const head=new THREE.Mesh(new THREE.SphereGeometry(.18,10,8),new THREE.MeshLambertMaterial({color:0xbca998}));head.position.set(-.58,1.25,.1);this.car.add(head);const wheel=new THREE.Mesh(new THREE.TorusGeometry(.23,.035,6,18),new THREE.MeshLambertMaterial({color:0x969fa3}));wheel.position.set(-.58,.85,-.7);wheel.rotation.x=-.4;this.car.add(wheel);for(const x of [-.8,-.36])box(this.car,x,.8,-.3,.12,.13,.75,0x505e69);
+ }
+ render(renderer,camera,state,reduced){const z=-state.ride.time*7;this.car.position.z=z;camera.position.set(.53,1.2+(reduced?0:Math.sin(state.ride.time*2)*.008),z);camera.rotation.set(state.player.pitch,Math.max(-1.25,Math.min(1.25,state.player.yaw)),0);renderer.render(this.scene,camera);return renderer.domElement;}
+}
