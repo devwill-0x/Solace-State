@@ -1,6 +1,7 @@
 // Every visible surface is rebuilt from printable characters, blended with
 // liquid-glass distortion, a look-down rainbow
-// body aura, and full-body prismatic mirror reflections.
+// body aura, and 3D iridescent glass mirror reflections.
+import {GlassFigureRenderer} from './glass-figure.js';
 const PALETTES=[
   null, // 0: monochrome print
   [255,95,185],  // 1: rose-magenta
@@ -16,6 +17,7 @@ export class Ascii {
   constructor(canvas,street){
     this.canvas=canvas;this.ctx=canvas.getContext('2d',{alpha:false});this.street=street;
     this.sample=document.createElement('canvas');this.read=this.sample.getContext('2d',{willReadFrequently:true,alpha:false});
+    this.glassFigure=new GlassFigureRenderer();
     this.quality=0;this.reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.resize();window.addEventListener('resize',()=>this.resize());
   }
@@ -62,109 +64,20 @@ export class Ascii {
       for(let k=0;k<11;k++)cc.fillText(ramps[0][k],(k+.5)*this.tw,(color+.5)*this.th);
     }
   }
-  drawHumanoidAura(ctx,cx,cy,figH,time,state,isMirror=false){
-    const w=figH*.46,headR=figH*.095,headY=cy-figH*.36,chestY=cy-figH*.14,hipY=cy+figH*.08;
-    const stride=state.moving?Math.sin(state.distance*5.5):Math.sin(time*1.2)*.15;
-    const breath=.5+.5*Math.sin(time*1.8);
-    ctx.save();
-    ctx.globalCompositeOperation='screen';
-
-    const rayR=figH*(.78+.08*breath);
-    const numRays=28;
-    for(let i=0;i<numRays;i++){
-      const a=(i/numRays)*Math.PI*2+time*.14;
-      const rLen=rayR*(.68+.32*Math.sin(i*3.7+time*1.6));
-      const hue=(i*(360/numRays)+time*28)%360;
-      const grad=ctx.createLinearGradient(cx,chestY,cx+Math.cos(a)*rLen,chestY+Math.sin(a)*rLen);
-      grad.addColorStop(0,`hsla(${hue},100%,88%,.46)`);
-      grad.addColorStop(.55,`hsla(${(hue+40)%360},98%,68%,.24)`);
-      grad.addColorStop(1,`hsla(${(hue+80)%360},95%,55%,0)`);
-      ctx.strokeStyle=grad;
-      ctx.lineWidth=Math.max(2,figH*.028*(1+.4*Math.sin(i*1.9+time)));
-      ctx.beginPath();ctx.moveTo(cx,chestY);ctx.lineTo(cx+Math.cos(a)*rLen,chestY+Math.sin(a)*rLen);ctx.stroke();
+  drawGlassFigure(ctx,mx,my,mw,mh,cx,cy,figH,time,state){
+    const glassCanvas=this.glassFigure?.render(time,state);
+    if(glassCanvas){
+      const gw=glassCanvas.width,gh=glassCanvas.height;
+      const drawH=Math.max(mh*.86,Math.min(mh*1.04,figH*1.12));
+      const drawW=drawH*(gw/gh);
+      const dx=Math.max(mx-drawW*.12,Math.min(mx+mw-drawW*.88,cx-drawW*.5));
+      const dy=cy-drawH*.5;
+      ctx.drawImage(glassCanvas,dx,dy,drawW,drawH);
+      return;
     }
-
-    const shells=[
-      {scale:1.58,color:`hsla(${(48+time*18)%360},100%,68%,.26)`},
-      {scale:1.36,color:`hsla(${(280+time*18)%360},96%,66%,.34)`},
-      {scale:1.18,color:`hsla(${(345+time*18)%360},98%,68%,.42)`},
-      {scale:1.04,color:`hsla(${(168+time*18)%360},100%,66%,.52)`}
-    ];
-    for(const s of shells){
-      const rx=w*s.scale,ry=figH*.54*s.scale;
-      const ag=ctx.createRadialGradient(cx,cy-figH*.04,rx*.12,cx,cy-figH*.04,Math.max(rx,ry));
-      ag.addColorStop(0,s.color);
-      ag.addColorStop(.72,s.color);
-      ag.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.fillStyle=ag;
-      ctx.beginPath();ctx.ellipse(cx,cy-figH*.04,rx,ry,0,0,Math.PI*2);ctx.fill();
-    }
-
-    const drawLimb=(x0,y0,x1,y1,r0,r1,hueOff)=>{
-      const lg=ctx.createLinearGradient(x0,y0,x1,y1);
-      lg.addColorStop(0,`hsla(${(185+hueOff+time*22)%360},98%,76%,.72)`);
-      lg.addColorStop(.5,`hsla(${(305+hueOff+time*22)%360},95%,72%,.68)`);
-      lg.addColorStop(1,`hsla(${(52+hueOff+time*22)%360},100%,82%,.75)`);
-      ctx.strokeStyle=lg;ctx.lineCap='round';ctx.lineWidth=(r0+r1);
-      ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
-    };
-    for(const side of [-1,1]){
-      const swing=side*stride*figH*.055;
-      const hipX=cx+side*w*.19,kneeX=hipX+swing*.4,kneeY=hipY+figH*.18,footX=hipX+swing,footY=cy+figH*.44;
-      drawLimb(hipX,hipY,kneeX,kneeY,w*.09,w*.075,side*35);
-      drawLimb(kneeX,kneeY,footX,footY,w*.075,w*.06,side*55+40);
-    }
-    const torsoGrad=ctx.createRadialGradient(cx,chestY,figH*.02,cx,cy-figH*.04,figH*.32);
-    torsoGrad.addColorStop(0,'rgba(255,255,255,.96)');
-    torsoGrad.addColorStop(.28,`hsla(${(175+time*25)%360},100%,78%,.82)`);
-    torsoGrad.addColorStop(.62,`hsla(${(295+time*25)%360},96%,64%,.65)`);
-    torsoGrad.addColorStop(1,`hsla(${(235+time*25)%360},92%,48%,0)`);
-    ctx.fillStyle=torsoGrad;
-    ctx.beginPath();ctx.ellipse(cx,cy-figH*.07,w*.34,figH*.24,0,0,Math.PI*2);ctx.fill();
-
-    for(const side of [-1,1]){
-      const armSwing=-side*stride*figH*.05;
-      const shX=cx+side*w*.32,shY=cy-figH*.22;
-      const elX=cx+side*w*.44+armSwing*.5,elY=cy-figH*.05;
-      const haX=cx+side*w*.48+armSwing,haY=cy+figH*.11;
-      drawLimb(shX,shY,elX,elY,w*.075,w*.065,side*45+90);
-      drawLimb(elX,elY,haX,haY,w*.065,w*.055,side*45+150);
-    }
-
-    const headHalo=ctx.createRadialGradient(cx,headY,headR*.2,cx,headY,headR*2.1);
-    headHalo.addColorStop(0,`hsla(${(190+time*20)%360},100%,92%,.9)`);
-    headHalo.addColorStop(.45,`hsla(${(275+time*20)%360},96%,70%,.65)`);
-    headHalo.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=headHalo;ctx.beginPath();ctx.arc(cx,headY,headR*2.1,0,Math.PI*2);ctx.fill();
-
-    if(isMirror){
-      const innerShadow=ctx.createRadialGradient(cx,headY,0,cx,headY,headR*.95);
-      innerShadow.addColorStop(0,'rgba(14,10,38,.62)');
-      innerShadow.addColorStop(.75,'rgba(38,22,88,.35)');
-      innerShadow.addColorStop(1,'rgba(90,180,255,0)');
-      ctx.globalCompositeOperation='source-over';
-      ctx.fillStyle=innerShadow;ctx.beginPath();ctx.ellipse(cx,headY,headR*.82,headR*1.05,0,0,Math.PI*2);ctx.fill();
-      ctx.globalCompositeOperation='screen';
-    }
-
-    const starR=figH*(.11+.025*breath);
-    const star=ctx.createRadialGradient(cx,chestY,0,cx,chestY,starR*2.2);
-    star.addColorStop(0,'rgba(255,255,255,.98)');
-    star.addColorStop(.25,`hsla(${(55+time*35)%360},100%,85%,.85)`);
-    star.addColorStop(.6,`hsla(${(180+time*35)%360},100%,70%,.42)`);
-    star.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=star;ctx.beginPath();ctx.arc(cx,chestY,starR*2.2,0,Math.PI*2);ctx.fill();
-
-    for(let i=-5;i<=5;i++){
-      const wy=cy+i*figH*.075+Math.sin(time*2.6+i)*3;
-      const ww=w*(.85-Math.abs(i)*.09)*(.7+.3*Math.sin(time*2.1+i*1.4));
-      const wg=ctx.createLinearGradient(cx-ww,wy,cx+ww,wy);
-      wg.addColorStop(0,'rgba(0,0,0,0)');
-      wg.addColorStop(.5,`hsla(${(48+i*32+time*30)%360},100%,86%,.36)`);
-      wg.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.fillStyle=wg;ctx.fillRect(cx-ww,wy-1.5,ww*2,3);
-    }
-    ctx.restore();
+    const halo=ctx.createRadialGradient(cx,cy,figH*.05,cx,cy,figH*.55);
+    halo.addColorStop(0,'rgba(120,185,255,.32)');halo.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=halo;ctx.beginPath();ctx.ellipse(cx,cy,figH*.22,figH*.46,0,0,Math.PI*2);ctx.fill();
   }
   drawLookDownAura(ctx,state,time,lookDown){
     if(lookDown<=.01)return 0;
@@ -236,12 +149,9 @@ export class Ascii {
       const mx=m.u0*w,my=m.v0*h,mw=m.w*w,mh=m.h*h;
       ctx.save();
       ctx.beginPath();ctx.rect(mx,my,mw,mh);ctx.clip();
-      const bg=ctx.createLinearGradient(mx,my,mx+mw,my+mh);
-      bg.addColorStop(0,'rgba(18,12,34,.92)');
-      bg.addColorStop(.5,'rgba(28,16,46,.88)');
-      bg.addColorStop(1,'rgba(12,18,38,.94)');
-      ctx.fillStyle=bg;ctx.fillRect(mx,my,mw,mh);
-      this.drawHumanoidAura(ctx,m.rx*w,m.ry*h,Math.max(mh*.62,Math.min(mh*.92,m.figH*h)),time,state,true);
+      ctx.fillStyle='#212d3c';ctx.fillRect(mx,my,mw,mh);
+      this.drawGlassFigure(ctx,mx,my,mw,mh,m.rx*w,m.ry*h,Math.max(mh*.62,Math.min(mh*.9,m.figH*h)),time,state);
+      ctx.strokeStyle='rgba(190,220,255,.35)';ctx.lineWidth=1.5;ctx.strokeRect(mx+1,my+1,mw-2,mh-2);
       ctx.restore();
     }
 
@@ -271,20 +181,17 @@ export class Ascii {
 
         for(let mIdx=0;mIdx<mirrors.length;mIdx++){
           const m=mirrors[mIdx],mx0=m.u0*w,mx1=m.u1*w,my0=m.v0*h,my1=m.v1*h;
-          const pad=28;
+          const pad=14;
           if(px>=mx0-pad&&px<=mx1+pad&&py>=my0-pad&&py<=my1+pad){
             const inX=px>=mx0&&px<=mx1,inY=py>=my0&&py<=my1;
             if(inX&&inY){
-              const edge=Math.min(px-mx0,mx1-px,py-my0,my1-py)/Math.max(8,Math.min(mx1-mx0,my1-my0)*.18);
-              hole=Math.max(hole,Math.min(.92,edge*.92));
-              glassTint=Math.max(glassTint,.9);
-              hueShift=time*1.5+(py-my0)*.04;
+              hole=1;
             }else{
               const dEdge=Math.hypot(px<mx0?mx0-px:px>mx1?px-mx1:0,py<my0?my0-py:py>my1?py-my1:0);
               const t=Math.max(0,1-dEdge/pad);
-              warpX+=Math.sin(py*.15+time*3.5)*t*2.2;
-              warpY+=Math.cos(px*.15-time*3.2)*t*2.2;
-              if(t>glassTint){glassTint=t;hueShift=time+dEdge*.1;}
+              warpX+=Math.sin(py*.15+time*3.5)*t*1.6;
+              warpY+=Math.cos(px*.15-time*3.2)*t*1.6;
+              if(t*.65>glassTint){glassTint=t*.65;hueShift=time+dEdge*.12;}
             }
           }
         }
