@@ -6,18 +6,21 @@ import {ARENAS,TETHERS,TETHER_GOAL,createRuntimeCombat,performSlash,updateCombat
 
 const $=id=>document.getElementById(id),canvas=$('world'),menu=$('menu'),storageKey='solace-dream-v3',keys=new Set(),touches=new Map();
 let saved;try{saved=JSON.parse(localStorage.getItem(storageKey));}catch{}
-let state=createState(saved),ascii,time=0,last=0,renderAge=0,saveAge=0,drag=null,twoTap=null,audio=null,muted=true;
+let state=createState(saved),ascii,time=0,last=0,renderAge=0,saveAge=0,drag=null,twoTap=null,audio=null,muted=true,sceneDirty=true;
 state.runtime=createRuntimeCombat();
 const touchMove={forward:0,right:0};
 const music=new NightMusic();let musicDeclined=false,titleActive=true;
+try{musicDeclined=localStorage.getItem('solace-music')==='off';}catch{}
+window.addEventListener('resize',()=>sceneDirty=true);
 state.paused=true;
 
-function syncMusicButton(){$('title-sound').textContent=music.enabled?'Music / On':'Music / Off';$('title-sound').setAttribute('aria-pressed',String(music.enabled));}
+function syncMusicButton(){$('title-sound').textContent=music.enabled?'Music / On':musicDeclined?'Music / Off':'Music / Enable';$('title-sound').setAttribute('aria-pressed',String(music.enabled));$('music-toggle').textContent=music.enabled?'Music On':'Music Off';$('music-toggle').setAttribute('aria-pressed',String(music.enabled));}
+function rememberMusic(){musicDeclined=!music.enabled;try{localStorage.setItem('solace-music',musicDeclined?'off':'on');}catch{}syncMusicButton();}
 const opening=new Opening({canvas:$('opening-art'),stage:$('title-screen'),shock:()=>{music.shock();$('opening-caption').textContent='A crow touches the wire. A spark. A crow with devil horns appears above the name devwill.';},done:()=>{titleActive=false;$('title-screen').classList.remove('playing');music.setMode('game');setMenu(false);}});
 async function enterNight(){if(!ascii||opening.mode==='film')return;clearInput();state.paused=true;if(menu.open)menu.close();soundLevel();if(!musicDeclined)await music.start();music.setMode('title');music.beginBuild();syncMusicButton();$('title-screen').classList.add('playing');$('skip-opening').hidden=false;$('opening-caption').textContent='Crows wait on a power line. One takes flight.';opening.play();$('skip-opening').focus({preventScroll:true});}
 $('enter-night').onclick=enterNight;
 $('skip-opening').onclick=()=>opening.finish();
-$('title-sound').onclick=async()=>{await music.toggle();musicDeclined=!music.enabled;syncMusicButton();};
+$('title-sound').onclick=async()=>{await music.toggle();rememberMusic();};
 $('replay-opening').onclick=()=>{titleActive=true;if(menu.open)menu.close();$('title-screen').hidden=false;enterNight();};
 
 function save(){try{localStorage.setItem(storageKey,JSON.stringify(serialize(state)));}catch{}}
@@ -49,7 +52,7 @@ function flipSwitch(){
 const story=createStory({
   getState:()=>state,
   save,
-  pause:value=>{clearInput();state.paused=value;if(value&&document.pointerLockElement)document.exitPointerLock();if(!value){if(!state.started){state.paused=true;menu.showModal();}else canvas.focus({preventScroll:true});}soundLevel();},
+  pause:value=>{clearInput();sceneDirty=true;state.paused=value;music.setMode(value?'title':'game');if(value&&document.pointerLockElement)document.exitPointerLock();if(!value){if(!state.started){state.paused=true;menu.showModal();}else canvas.focus({preventScroll:true});}soundLevel();},
   onSwordClaimed:()=>{ascii?.addSlashTear(1,true);music.tetherCut();},
   onTetherCut:res=>{ascii?.addSlashTear(-1,true);music.tetherCut();if(res.switchJustUnlocked){state.runtime.banner='Mesh broken! Heavenly Switch unlocked [T]';state.runtime.bannerTimer=4.2;music.switchLight(true);}}
 });
@@ -58,7 +61,7 @@ function setMenu(open){
   if(titleActive)return;
   if(story.isOpen())story.close();
   if(!open&&!ascii)return;
-  clearInput();state.paused=open;$('leave-ride').hidden=!state.ride;
+  clearInput();sceneDirty=true;state.paused=open;$('leave-ride').hidden=!state.ride;
   if(open){$('music-toggle').textContent=music.enabled?'Music On':'Music Off';if(document.pointerLockElement)document.exitPointerLock();$('begin').textContent=ascii?(state.started?(state.ride?'Continue the drive':'Keep walking'):'Walk into the night'):'Preparing the street...';$('restart').hidden=!state.started;if(!menu.open)menu.showModal();}
   else{state.started=true;if(menu.open)menu.close();canvas.focus({preventScroll:true});}
   music.setMode(open?'title':'game');soundLevel();save();
@@ -67,8 +70,8 @@ $('leave-ride').onclick=()=>{endRide(state);setMenu(false);};
 $('begin').onclick=()=>setMenu(false);
 menu.addEventListener('cancel',e=>{e.preventDefault();if(state.started)setMenu(false);});
 $('restart').onclick=()=>{if(!confirm('Start over and clear your recovered memories?'))return;state=createState();state.runtime=createRuntimeCombat();setMenu(false);};
-$('music-toggle').onclick=async()=>{await music.toggle();musicDeclined=!music.enabled;syncMusicButton();$('music-toggle').textContent=music.enabled?'Music On':'Music Off';};
-$('quality').onclick=()=>{if(ascii)$('quality').innerHTML='Text detail <span>'+(ascii.toggle()==='HIGH'?'Fine':'Coarse')+'</span>';};
+$('music-toggle').onclick=async()=>{await music.toggle();rememberMusic();$('music-toggle').textContent=music.enabled?'Music On':'Music Off';};
+$('quality').onclick=()=>{sceneDirty=true;if(ascii)$('quality').innerHTML='Text detail <span>'+(ascii.toggle()==='HIGH'?'Fine':'Coarse')+'</span>';};
 $('slash-btn').onclick=e=>{e.stopPropagation();triggerSlash();canvas.focus({preventScroll:true});};
 $('veil-switch').onclick=e=>{e.stopPropagation();flipSwitch();canvas.focus({preventScroll:true});};
 
@@ -196,7 +199,7 @@ function frame(ms){
   updateCombat(state,state.runtime,dt,time);
   story.update();updateHud();if(titleActive)$('interact').hidden=true;
   saveAge+=dt;if(saveAge>5){save();saveAge=0;}
-  renderAge=titleActive?0:renderAge+dt;if(!titleActive&&renderAge>=1/30){ascii.draw(state,time,state.paused?0:renderAge);renderAge=0;}
+  renderAge=titleActive?0:renderAge+dt;if(!titleActive&&renderAge>=1/30){if(!state.paused||sceneDirty){ascii.draw(state,time,state.paused?0:renderAge);sceneDirty=false;}renderAge=0;}
   requestAnimationFrame(frame);
 }
 
@@ -204,7 +207,7 @@ async function boot(){
   try{
     const [{Street},{Ascii}]=await Promise.all([import('./street.js'),import('./ascii.js')]);
     const street=new Street();ascii=new Ascii(canvas,street);ascii.draw(state,0,0);
-    $('loading').hidden=true;$('begin').disabled=false;$('enter-night').disabled=false;
+    syncMusicButton();$('loading').hidden=true;$('begin').disabled=false;$('enter-night').disabled=false;
     $('enter-night').textContent=state.started?'Return to the night':'Enter the night';
     $('title-save').textContent=state.started?'YOUR WALK IS WAITING':'A MEMORY OF MORNING';
     $('game').dataset.ready='true';requestAnimationFrame(frame);

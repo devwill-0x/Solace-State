@@ -45,3 +45,7 @@ Browser validation covers the complete opening, automatic game entry, music acti
 ### Gothic rock arrangement
 
 The original score now builds at 96 BPM: exposed piano-like notes and organ lead into bass, stereo distorted power-chord riffs, kick, snare and cymbals. Entering/replaying the intro resets the build; the shock cue releases the full arrangement. The four-chord loop continues at a reduced level during exploration. Every instrument is generated locally with Web Audio; no external audio downloads are required. A compressor and restrained mix preserve headroom. Offline audio QA checks the progression, finite samples, peak level and DC offset; browser QA checks activation, mute, replay, skipping and mobile entry.
+
+### Quiet-view cleanup
+
+Floating overlay orbs and the look-down player aura are removed. The iridescent mirror figure remains. Paused scenes render once, then redraw only for a resize or detail change; active exploration resumes normal rendering. Music mute preferences persist across reloads, both music buttons expose their state to assistive technology, and leaving the journal restores the quieter exploration mix.
