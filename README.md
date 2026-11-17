@@ -33,3 +33,11 @@ No runtime dependencies are downloaded. Three.js r170 and its MIT license are in
 ## Validation
 
 Movement and puzzle tests cover every new portal round trip, all five puzzle solutions, incorrect-input handling, partial progress, completion gating and saved endings, as well as the existing ride and map collision behavior. Browser QA plays all five puzzles using their controls, returns through their portals, completes the shrine, reloads the save, and checks the mobile journal.
+
+## Title screen and devwill opening
+
+A dedicated main menu shows ASCII crows on power lines, rain, and a quiet title. Enter/Return to the night starts a nine-second opening: one crow takes flight, touches a live wire with a brief localized spark, then returns as a horned crow above the devwill studio mark. Skip intro or Escape enters the game immediately. The pause menu can replay the sequence. Saved walks are preserved.
+
+The original procedural soundtrack combines a soft suspended drone, sparse piano-like tones and a restrained electrical cue. Browser audio starts only after a click/tap. Title and pause menus offer music controls; music softens during exploration and fades when the tab is hidden. Rain ambience has its own switch. The title renderer replaces world rendering while open, and reduced-motion preferences disable rain movement and the logo fade.
+
+Browser validation covers the complete opening, automatic game entry, music activation/muting, replay, Escape/button skipping, saved-game continuation and mobile layout with reduced motion.
