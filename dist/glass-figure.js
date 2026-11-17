@@ -443,3 +443,41 @@ export class GlassFigureRenderer {
     return this.renderer.domElement;
   }
 }
+
+export function createGlassFigureModel(){
+      const humanGeo = buildUnifiedHumanGeometry();
+
+      const backMat = new THREE.ShaderMaterial({
+        vertexShader: VERTEX_SHADER,
+        fragmentShader: FRAGMENT_SHADER,
+        uniforms: {
+          uTime: { value: 0 },
+          uStride: { value: 0 },
+          uOpacityScale: { value: 0.44 }
+        },
+        transparent: true,
+        depthWrite: false,
+        side: THREE.BackSide
+      });
+      const frontMat = new THREE.ShaderMaterial({
+        vertexShader: VERTEX_SHADER,
+        fragmentShader: FRAGMENT_SHADER,
+        uniforms: {
+          uTime: { value: 0 },
+          uStride: { value: 0 },
+          uOpacityScale: { value: 0.96 }
+        },
+        transparent: true,
+        depthWrite: true,
+        side: THREE.FrontSide
+      });
+
+      const group = new THREE.Group();
+      const backMesh = new THREE.Mesh(humanGeo, backMat);
+      const frontMesh = new THREE.Mesh(humanGeo, frontMat);
+      backMesh.renderOrder = 1;
+      frontMesh.renderOrder = 2;
+      group.add(backMesh, frontMesh);
+
+ humanGeo.computeBoundingBox();const bounds=humanGeo.boundingBox,center=bounds.getCenter(new THREE.Vector3());humanGeo.translate(-center.x,-center.y,-center.z);const scale=1.7/(bounds.max.y-bounds.min.y);group.scale.setScalar(scale);return {group,update(time,state){for(const material of [backMat,frontMat]){material.uniforms.uTime.value=time;material.uniforms.uStride.value=state.moving?Math.sin(state.distance*5.2):0;}}};
+}

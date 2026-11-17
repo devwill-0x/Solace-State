@@ -3,5 +3,5 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node --test tests/game.test.mjs", "start": "python -m http.server 4173 --directory dist" }
+  "scripts": { "test": "node --test", "start": "python -m http.server 4173 --directory dist" }
 }

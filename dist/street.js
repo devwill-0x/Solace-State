@@ -1,3 +1,5 @@
+import {MapMirror} from './reflection.js';
+import {createGlassFigureModel} from './glass-figure.js';
 import {WORLDS,MIRRORS} from './journey.js';
 import {buildDream} from './dream-worlds.js';
 import {buildNeighborhood} from './neighborhood.js';
@@ -21,7 +23,7 @@ export class Street {
     this.moon=new THREE.DirectionalLight(0xededed,1.1);this.moon.position.set(-3,14,9);this.scene.add(this.moon);
     this.heavenSun=new THREE.DirectionalLight(0xffe6b3,0);this.heavenSun.position.set(14,26,-55);this.scene.add(this.heavenSun);
     this.wallTexture=texture(128,128,(c,w,h)=>{c.fillStyle='#b7b7b7';c.fillRect(0,0,w,h);for(let i=0;i<3500;i++){const v=90+rnd(i)*125;c.fillStyle=`rgb(${v},${v},${v})`;c.fillRect(rnd(i+9)*w,rnd(i+81)*h,1,1);}for(let y=0;y<h;y+=32){c.fillStyle='#888';c.fillRect(0,y,w,1);}});
-    this.buildGround();for(let i=0;i<5;i++){if(i!==2)this.buildHouse(-1,i);if(i!==3)this.buildHouse(1,i);}this.buildPoles();this.buildDetails();this.buildMirrors();this.buildShrine();buildNeighborhood(this);this.flush();this.buildRain();this.buildHeavenDecor();this.buildMeadow();parkedCar(this.scene);this.rideScene=new PassengerRide();batchStatic(this.rideScene.scene);this.frustum=new THREE.Frustum();this.viewProjection=new THREE.Matrix4();
+    this.buildGround();for(let i=0;i<5;i++){if(i!==2)this.buildHouse(-1,i);if(i!==3)this.buildHouse(1,i);}this.buildPoles();this.buildDetails();this.buildMirrors();this.playerReflection=createGlassFigureModel();this.scene.add(this.playerReflection.group);this.playerReflection.group.visible=false;this.buildShrine();buildNeighborhood(this);this.flush();this.buildRain();this.buildHeavenDecor();this.buildMeadow();parkedCar(this.scene);this.rideScene=new PassengerRide();batchStatic(this.rideScene.scene);this.frustum=new THREE.Frustum();this.viewProjection=new THREE.Matrix4();
   }
   box(x,y,z,w,h,d,color=0x777777){this.boxes.push({p:[x,y,z],s:[w,h,d],color});}
   pipe(a,b,r=.04,color=0x777777){this.pipes.push({a,b,r,color});}
@@ -130,18 +132,12 @@ export class Street {
     const direction=texture(256,96,(c,w,h)=>{c.fillStyle='#555';c.fillRect(0,0,w,h);c.fillStyle='#ddd';c.font='32px serif';c.textAlign='center';c.fillText('月見神社 →',w/2,60);});this.plane(-3.4,2.1,-75,1.2,.45,direction,0,true);
   }
   buildMirrors(){
-    this.mirrorSpecs=MIRRORS;
+    this.mirrorSpecs=MIRRORS;this.mapMirrors=[];
     for(const m of this.mirrorSpecs){
       this.box(m.x+m.side*.08,m.y,m.z,.12,m.h+.16,m.w+.18,0x9a9a9a);
       this.box(m.x+m.side*.04,.14,m.z,.28,.28,m.w+.34,0x585858);
       this.box(m.x+m.side*.04,m.y+m.h*.5+.08,m.z,.26,.14,m.w+.32,0xc4c4c4);
-      const glass=texture(192,320,(c,w,h)=>{
-        c.clearRect(0,0,w,h);
-        const g=c.createLinearGradient(0,0,w,h);g.addColorStop(0,'rgba(120,170,220,.22)');g.addColorStop(.5,'rgba(15,24,38,.12)');g.addColorStop(1,'rgba(180,210,255,.24)');
-        c.fillStyle=g;c.fillRect(0,0,w,h);c.strokeStyle='#dceeff';c.lineWidth=6;c.strokeRect(6,6,w-12,h-12);
-      });
-      const mp=this.plane(m.x,m.y,m.z,m.w,m.h,glass,m.side===1?-Math.PI/2:Math.PI/2,true);
-      mp.material.transparent=true;mp.material.opacity=0.25;mp.material.depthWrite=false;
+      const mirror=new MapMirror(m);this.scene.add(mirror.face);this.mapMirrors.push(mirror);
       this.glow(m.x-m.side*.85,m.z,3.4,4,.42);
       const ml=new THREE.PointLight(0xffffff,11,6.5,2);ml.position.set(m.x-m.side*.75,2.2,m.z);this.scene.add(ml);
     }
@@ -153,30 +149,6 @@ export class Street {
     if(depth<=.12)return null;
     this._projVec.applyMatrix4(this.camera.projectionMatrix);
     return {u:(this._projVec.x+1)*.5,v:(1-this._projVec.y)*.5,depth};
-  }
-  projectMirrors(state){
-    if(!this.mirrorSpecs||state.realm!=='street'||state.ride)return [];
-    this.camera.updateMatrixWorld();
-    const p=state.player,results=[];
-    for(const m of this.mirrorSpecs){
-      if(m.id==='mirror-tea'&&p.x> -3.2)continue;
-      if(m.id==='mirror-garden'&&p.x<3.2)continue;
-      if(m.id==='mirror-street'&&Math.abs(p.x)>3.6)continue;
-      const dx=p.x-m.x,dz=p.z-m.z,dist=Math.hypot(dx,dz);
-      if(dist>11||dx*m.nx<=.05)continue;
-      const center=this.projectPoint(m.x,m.y,m.z);
-      if(!center||center.u<-.35||center.u>1.35||center.v<-.35||center.v>1.35)continue;
-      const top=this.projectPoint(m.x,m.y+m.h*.5,m.z),bot=this.projectPoint(m.x,m.y-m.h*.5,m.z);
-      const left=this.projectPoint(m.x,m.y,m.z-m.w*.5),right=this.projectPoint(m.x,m.y,m.z+m.w*.5);
-      if(!top||!bot||!left||!right)continue;
-      const u0=Math.min(left.u,right.u),u1=Math.max(left.u,right.u),v0=Math.min(top.v,bot.v),v1=Math.max(top.v,bot.v);
-      if(u1<0||u0>1||v1<0||v0>1)continue;
-      const rx=m.x-(p.x-m.x),rz=p.z,refl=this.projectPoint(rx,1.18,rz)||center;
-      const reflTop=this.projectPoint(rx,1.76,rz),reflBot=this.projectPoint(rx,.12,rz);
-      const figH=reflTop&&reflBot?Math.abs(reflBot.v-reflTop.v):Math.abs(v1-v0)*.78;
-      results.push({id:m.id,u0,u1,v0,v1,cx:(u0+u1)*.5,cy:(v0+v1)*.5,w:u1-u0,h:v1-v0,dist,rx:refl.u,ry:refl.v,figH});
-    }
-    return results;
   }
   buildShrine(){
     const z=-36;
@@ -298,9 +270,10 @@ export class Street {
   resize(w,h,aspect){
     const rw=Math.max(120,Math.min(1280,Math.round(w))),rh=Math.max(80,Math.min(800,Math.round(h)));
     this.renderer.setSize(rw,rh,false);
-    const pw=Math.min(360,rw),ph=Math.min(360,rh);
-    for(const pair of this.portalPairs){pair.target.setSize(pw,ph);pair.entry.userData.face.material.uniforms.size.value.set(pw,ph);}
-    for(const link of (this.arenaLinks||[])){link.target.setSize(pw,ph);link.entry.userData.face.material.uniforms.size.value.set(pw,ph);}
+    const pw=Math.min(480,rw),ph=Math.max(1,Math.round(pw*rh/rw));
+    for(const mirror of this.mapMirrors)mirror.resize(rw,rh);
+    for(const pair of this.portalPairs){pair.target.setSize(pw,ph);pair.entry.userData.face.material.uniforms.size.value.set(rw,rh);}
+    for(const link of (this.arenaLinks||[])){link.target.setSize(pw,ph);link.entry.userData.face.material.uniforms.size.value.set(rw,rh);}
     this.camera.aspect=aspect;this.camera.updateProjectionMatrix();
   }
 
@@ -395,6 +368,13 @@ export class Street {
       const req=link.toId==='arena2'?2:3;
       const open=(state.quest?.portalTier||0)>=req;
       link.entry.userData.face.visible=open;link.exit.userData.face.visible=true;
+    }
+    if(state.realm==='street'){
+      for(const mirror of this.mapMirrors)mirror.face.visible=false;
+      const figure=this.playerReflection;figure.group.position.set(p.x,.88,p.z);figure.group.rotation.y=p.yaw+Math.PI;figure.update(time,state);figure.group.visible=true;
+      for(const mirror of this.mapMirrors)mirror.render(this.renderer,this.scene,this.camera,this.frustum);
+      figure.group.visible=false;for(const mirror of this.mapMirrors)mirror.face.visible=true;
+      this.renderer.setRenderTarget(null);this.renderer.clippingPlanes=[];
     }
     this.renderer.render(this.portalPairs.find(pair=>pair.realm===state.realm)?.scene??this.arenaScenes?.[state.realm]?.scene??this.scene,this.camera);
     return this.renderer.domElement;

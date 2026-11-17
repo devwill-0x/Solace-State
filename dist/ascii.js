@@ -1,7 +1,6 @@
 // Every visible surface is rebuilt from printable characters (or broken open
 // with the Lightbreaker Sword to reveal the Heavenly 3D world), blended with
 // liquid-glass distortion and transparent 3D glass mirror reflections.
-import {GlassFigureRenderer} from './glass-figure.js';
 
 const PALETTES=[
   null, // 0: monochrome print
@@ -19,7 +18,6 @@ export class Ascii {
   constructor(canvas,street){
     this.canvas=canvas;this.ctx=canvas.getContext('2d',{alpha:false});this.street=street;
     this.sample=document.createElement('canvas');this.read=this.sample.getContext('2d',{willReadFrequently:true,alpha:false});
-    this.glassFigure=new GlassFigureRenderer();
     this.quality=0;this.reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.tears=[];
     this.resize();window.addEventListener('resize',()=>this.resize());
@@ -110,41 +108,6 @@ export class Ascii {
     return env;
   }
 
-  drawGlassFigure(ctx,mx,my,mw,mh,cx,cy,figH,time,state){
-    const glassCanvas=this.glassFigure?.render(time,state);
-    if(glassCanvas){
-      const gw=glassCanvas.width,gh=glassCanvas.height;
-      const drawH=Math.max(mh*.86,Math.min(mh*1.04,figH*1.12));
-      const drawW=drawH*(gw/gh);
-      const dx=Math.max(mx-drawW*.12,Math.min(mx+mw-drawW*.88,cx-drawW*.5));
-      const dy=cy-drawH*.5;
-      ctx.drawImage(glassCanvas,dx,dy,drawW,drawH);
-      return;
-    }
-    const halo=ctx.createRadialGradient(cx,cy,figH*.05,cx,cy,figH*.55);
-    halo.addColorStop(0,'rgba(120,185,255,.32)');halo.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=halo;ctx.beginPath();ctx.ellipse(cx,cy,figH*.22,figH*.46,0,0,Math.PI*2);ctx.fill();
-  }
-
-  drawMirrorsOverlay(ctx,mirrors,time,state){
-    const w=this.width,h=this.height;
-    for(const m of mirrors){
-      const mx=m.u0*w,my=m.v0*h,mw=m.w*w,mh=m.h*h;
-      ctx.save();
-      ctx.beginPath();ctx.rect(mx,my,mw,mh);ctx.clip();
-      // Subtle translucent diagonal mirror sheen so live scene/ASCII shows cleanly behind transparent glass figure
-      const sheen=ctx.createLinearGradient(mx,my,mx+mw,my+mh);
-      sheen.addColorStop(0,'rgba(185,225,255,0.08)');
-      sheen.addColorStop(0.45,'rgba(120,175,235,0.02)');
-      sheen.addColorStop(0.55,'rgba(225,245,255,0.11)');
-      sheen.addColorStop(1,'rgba(160,210,255,0.06)');
-      ctx.fillStyle=sheen;ctx.fillRect(mx,my,mw,mh);
-      this.drawGlassFigure(ctx,mx,my,mw,mh,m.rx*w,m.ry*h,Math.max(mh*.62,Math.min(mh*.9,m.figH*h)),time,state);
-      ctx.strokeStyle='rgba(205,232,255,.52)';ctx.lineWidth=1.8;ctx.strokeRect(mx+1,my+1,mw-2,mh-2);
-      ctx.restore();
-    }
-  }
-
   drawSwordOverlay(ctx,state,time){
     if(!state.quest?.sword||state.ride)return;
     const rt=state.runtime;
@@ -215,7 +178,6 @@ export class Ascii {
     }
 
     const ctx=this.ctx,w=this.width,h=this.height;
-    const mirrors=this.street.projectMirrors?.(state)||[];
     const lightMode=!!(state.quest?.lightMode&&state.quest?.lightUnlocked);
 
     if(lightMode){
@@ -224,7 +186,6 @@ export class Ascii {
       ctx.imageSmoothingEnabled=true;
       ctx.drawImage(heavenCanvas,0,0,w,h);
       ctx.imageSmoothingEnabled=false;
-      if(mirrors.length)this.drawMirrorsOverlay(ctx,mirrors,time,state);
     }else{
       const source=this.street.render(state,time,dt,this.reduced,0.0),cols=this.cols,rows=this.rows;
       this.read.drawImage(source,0,0,cols,rows);
@@ -241,26 +202,6 @@ export class Ascii {
           const wave=Math.sin(x*.11+time*1.9)*Math.cos(y*.13-time*1.5);
           warpX+=wave*.38;
           warpY+=Math.cos(x*.09-y*.12+time*1.7)*.32;
-
-          for(let mIdx=0;mIdx<mirrors.length;mIdx++){
-            const m=mirrors[mIdx],mx0=m.u0*w,mx1=m.u1*w,my0=m.v0*h,my1=m.v1*h;
-            const pad=14;
-            if(px>=mx0-pad&&px<=mx1+pad&&py>=my0-pad&&py<=my1+pad){
-              const inX=px>=mx0&&px<=mx1,inY=py>=my0&&py<=my1;
-              if(inX&&inY){
-                // Keep subtle dim liquid rain/street ASCII inside the mirror pane behind the transparent glass figure
-                hole=Math.max(hole,0.52);
-                warpX+=Math.sin(py*.18+time*3.2)*1.2;
-                warpY+=Math.cos(px*.18-time*2.9)*1.1;
-              }else{
-                const dEdge=Math.hypot(px<mx0?mx0-px:px>mx1?px-mx1:0,py<my0?my0-py:py>my1?py-my1:0);
-                const t=Math.max(0,1-dEdge/pad);
-                warpX+=Math.sin(py*.15+time*3.5)*t*1.6;
-                warpY+=Math.cos(px*.15-time*3.2)*t*1.6;
-                if(t*.65>glassTint){glassTint=t*.65;hueShift=time+dEdge*.12;}
-              }
-            }
-          }
 
           if(hole>.72)continue;
 
@@ -295,7 +236,6 @@ export class Ascii {
       }
 
       // Draw transparent glass reflection cleanly over mirror backdrop ASCII
-      if(mirrors.length)this.drawMirrorsOverlay(ctx,mirrors,time,state);
 
       // Sword mesh-break rifts revealing the Heavenly 3D world inside the dark ASCII veil
       if(this.tears.length){
@@ -308,8 +248,7 @@ export class Ascii {
             ctx.clip();
             ctx.imageSmoothingEnabled=true;
             ctx.drawImage(heavenCanvas,0,0,w,h);
-            if(mirrors.length)this.drawMirrorsOverlay(ctx,mirrors,time,state);
-            ctx.restore();
+                  ctx.restore();
             ctx.strokeStyle=`rgba(255,244,210,${0.92*env})`;
             ctx.lineWidth=3.5*env;
             ctx.shadowColor='#7eeeff';

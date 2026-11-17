@@ -49,3 +49,11 @@ The original score now builds at 96 BPM: exposed piano-like notes and organ lead
 ### Quiet-view cleanup
 
 Floating overlay orbs and the look-down player aura are removed. The iridescent mirror figure remains. Paused scenes render once, then redraw only for a resize or detail change; active exploration resumes normal rendering. Music mute preferences persist across reloads, both music buttons expose their state to assistive technology, and leaving the journal restores the quieter exploration mix.
+
+### Live portals and map reflections
+
+Portal textures now sample using the actual output viewport while their lower-resolution render targets retain the same aspect ratio. This restores the original seamless view in widescreen and portrait layouts.
+
+Street and courtyard mirrors now render the map from a camera reflected across the mirror plane, clipping out geometry behind the glass. Reflections respond to position, angle, and perspective. The player?s glass model is positioned in the world and rendered only into mirror views; no separate 2D figure or aura is painted over the screen. Only visible mirrors render, with capped resolution and no recursive mirror passes. The same reflected scene is sampled into ASCII or shown directly in Heavenly Light mode.
+
+Reflection tests verify camera geometry; browser checks validate viewport sampling with a four-color test texture, all three mirror render targets, portal round trips, and portrait resizing.
