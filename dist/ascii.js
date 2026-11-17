@@ -1,5 +1,5 @@
 // Every visible surface is rebuilt from printable characters, blended with
-// liquid-glass distortion, drifting non-ASCII aura pockets, a look-down rainbow
+// liquid-glass distortion, a look-down rainbow
 // body aura, and full-body prismatic mirror reflections.
 const PALETTES=[
   null, // 0: monochrome print
@@ -12,21 +12,6 @@ const PALETTES=[
   [245,115,255], // 7: orchid-violet
   [245,250,255]  // 8: prismatic opal
 ];
-const STREET_AURA_NODES=[
-  {x:-1.8,y:1.55,z:2.5,kind:0,hue:0},
-  {x:2.0,y:1.35,z:-6.5,kind:1,hue:1.1},
-  {x:-5.6,y:1.65,z:-13.0,kind:2,hue:2.2},
-  {x:-1.7,y:1.5,z:-16.5,kind:3,hue:3.3},
-  {x:5.6,y:1.55,z:-22.0,kind:4,hue:4.4},
-  {x:1.8,y:1.5,z:-26.0,kind:5,hue:5.2},
-  {x:0,y:1.85,z:-33.5,kind:0,hue:3.9}
-];
-const REALM_AURA_NODES=[
-  {x:-3.2,y:1.7,z:-90,kind:1,hue:.8},
-  {x:3.2,y:1.8,z:-95,kind:3,hue:2.4},
-  {x:0,y:2.1,z:-102,kind:0,hue:4.2}
-];
-
 export class Ascii {
   constructor(canvas,street){
     this.canvas=canvas;this.ctx=canvas.getContext('2d',{alpha:false});this.street=street;
@@ -76,72 +61,6 @@ export class Ascii {
       cc.fillStyle=`rgb(${(color>>4)*64+42},${((color>>2)&3)*64+42},${(color&3)*64+42})`;
       for(let k=0;k<11;k++)cc.fillText(ramps[0][k],(k+.5)*this.tw,(color+.5)*this.th);
     }
-  }
-  computePockets(state,time){
-    const w=this.width,h=this.height,pockets=[];
-    const nodes=state.realm==='street'?STREET_AURA_NODES:REALM_AURA_NODES;
-    for(let i=0;i<nodes.length;i++){
-      const n=nodes[i];
-      const wx=n.x+Math.sin(time*.45+i*1.7)*.42,wy=n.y+Math.cos(time*.55+i*1.1)*.24,wz=n.z+Math.sin(time*.3+i)*.5;
-      const proj=this.street.projectPoint?.(wx,wy,wz);
-      if(!proj||proj.depth>24||proj.u<-.25||proj.u>1.25||proj.v<-.25||proj.v>1.25)continue;
-      const fade=Math.max(0,Math.min(1,(24-proj.depth)/15))*Math.min(1,proj.depth/1.4);
-      const r=Math.max(36,Math.min(w*.21,(w*.23)/Math.max(1.8,proj.depth*.42)))*(.88+.14*Math.sin(time*.9+i*2));
-      pockets.push({x:proj.u*w,y:proj.v*h,r,strength:fade*.9,hue:(n.hue+time*.35)%(Math.PI*2),kind:n.kind,seed:i+1});
-    }
-    for(let k=0;k<2;k++){
-      const phase=time*.18+k*3.14;
-      const px=w*(.22+.56*(.5+.5*Math.sin(phase*1.1+k))),py=h*(.26+.44*(.5+.5*Math.cos(phase*.85+k*2)));
-      const r=Math.min(w,h)*(.105+.028*Math.sin(time*.6+k));
-      pockets.push({x:px,y:py,r,strength:.70,hue:(time*.4+k*2.4)%(Math.PI*2),kind:(k*3+1)%6,seed:k+10});
-    }
-    return pockets;
-  }
-  drawAuraPocket(ctx,p,time){
-    const {x,y,r,strength,hue,kind}=p;
-    if(strength<=.02)return;
-    ctx.save();
-    ctx.globalCompositeOperation='screen';
-    const deg=Math.round((hue/(Math.PI*2))*360)%360;
-    const g=ctx.createRadialGradient(x,y,r*.04,x,y,r);
-    g.addColorStop(0,`hsla(${(deg+180)%360},100%,92%,${.76*strength})`);
-    g.addColorStop(.22,`hsla(${(deg+140)%360},96%,68%,${.62*strength})`);
-    g.addColorStop(.45,`hsla(${(deg+290)%360},95%,64%,${.50*strength})`);
-    g.addColorStop(.70,`hsla(${(deg+45)%360},95%,62%,${.32*strength})`);
-    g.addColorStop(1,`hsla(${deg},90%,55%,0)`);
-    ctx.fillStyle=g;
-    ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
-
-    if(kind===3||kind===0){
-      for(let i=-4;i<=4;i++){
-        const ry=y+i*r*.16+Math.sin(time*2.4+i)*4;
-        const rw=r*(1-Math.abs(i)/5.2)*(.75+.25*Math.sin(time*1.9+i*1.3));
-        const rh=Math.max(2,r*.045);
-        const rg=ctx.createRadialGradient(x,ry,0,x,ry,rw);
-        rg.addColorStop(0,`hsla(${(deg+50+i*25)%360},100%,85%,${.42*strength})`);
-        rg.addColorStop(1,`hsla(${(deg+190)%360},100%,65%,0)`);
-        ctx.fillStyle=rg;
-        ctx.fillRect(x-rw,ry-rh,rw*2,rh*2);
-      }
-    }
-    if(kind===1||kind===5){
-      const rays=12;
-      for(let i=0;i<rays;i++){
-        const a=(i/rays)*Math.PI*2+time*.22,len=r*(.72+.26*Math.sin(time*1.7+i*2.1));
-        ctx.strokeStyle=`hsla(${(deg+i*30)%360},98%,76%,${.28*strength})`;
-        ctx.lineWidth=2.2;
-        ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(a)*len,y+Math.sin(a)*len);ctx.stroke();
-      }
-    }
-    for(let i=0;i<8;i++){
-      const a=i*.785+time*(.35+(i%3)*.12),dist=r*(.22+.52*((Math.sin(time*.8+i*1.9)+1)*.5));
-      const ox=x+Math.cos(a)*dist,oy=y+Math.sin(a)*dist,or=Math.max(2,r*(.04+.025*(i%3)));
-      const og=ctx.createRadialGradient(ox,oy,0,ox,oy,or*2.4);
-      og.addColorStop(0,`hsla(${(deg+i*45)%360},100%,90%,${.65*strength})`);
-      og.addColorStop(1,`hsla(${(deg+i*45)%360},100%,65%,0)`);
-      ctx.fillStyle=og;ctx.beginPath();ctx.arc(ox,oy,or*2.4,0,Math.PI*2);ctx.fill();
-    }
-    ctx.restore();
   }
   drawHumanoidAura(ctx,cx,cy,figH,time,state,isMirror=false){
     const w=figH*.46,headR=figH*.095,headY=cy-figH*.36,chestY=cy-figH*.14,hipY=cy+figH*.08;
@@ -307,12 +226,10 @@ export class Ascii {
     const w=this.width,h=this.height;
     ctx.fillStyle='#030303';ctx.fillRect(0,0,w,h);
 
-    const pockets=this.computePockets(state,time);
     const mirrors=this.street.projectMirrors?.(state)||[];
     const pitch=state.player?.pitch||0;
     const lookDown=Math.max(0,Math.min(1,(-pitch-.08)/.58));
 
-    for(const p of pockets)this.drawAuraPocket(ctx,p,time);
     const downAura=lookDown>.01?this.drawLookDownAura(ctx,state,time,lookDown):null;
 
     for(const m of mirrors){
@@ -338,23 +255,6 @@ export class Ascii {
         const wave=Math.sin(x*.11+time*1.9)*Math.cos(y*.13-time*1.5);
         warpX+=wave*.38;
         warpY+=Math.cos(x*.09-y*.12+time*1.7)*.32;
-
-        for(let k=0;k<pockets.length;k++){
-          const p=pockets[k],dx=px-p.x,dy=py-p.y,d2=dx*dx+dy*dy,r2=p.r*p.r;
-          if(d2<r2*2.1){
-            const d=Math.sqrt(d2),t=Math.max(0,1-d/(p.r*1.42));
-            const ripple=Math.sin(d*.18-time*4.2+p.seed)*t*2.6;
-            const inv=1/(d+8);
-            warpX+=(dx*inv*ripple-dy*inv*t*1.8)*p.strength;
-            warpY+=(dy*inv*ripple+dx*inv*t*1.8)*p.strength;
-            const core=Math.max(0,1-d/(p.r*.78))*p.strength;
-            if(core>hole)hole=core;
-            if(t*p.strength>glassTint){
-              glassTint=t*p.strength;
-              hueShift=p.hue+Math.atan2(dy,dx)*.5+d*.02;
-            }
-          }
-        }
 
         if(downAura){
           const dx=px-downAura.cx,dy=(py-downAura.cy)*1.18,d=Math.hypot(dx,dy),r=downAura.radius;
