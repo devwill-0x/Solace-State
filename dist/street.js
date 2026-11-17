@@ -1,4 +1,4 @@
-import {WORLDS} from './journey.js';
+import {WORLDS,MIRRORS} from './journey.js';
 import {buildDream} from './dream-worlds.js';
 import {buildNeighborhood} from './neighborhood.js';
 import {PassengerRide,parkedCar} from './ride.js';
@@ -17,7 +17,7 @@ export class Street {
     this.scene.add(new THREE.AmbientLight(0xffffff,.56));this.sky=new THREE.HemisphereLight(0xb6b6b6,0x303030,1.15);this.scene.add(this.sky);
     const moon=new THREE.DirectionalLight(0xededed,1.1);moon.position.set(-3,14,9);this.scene.add(moon);
     this.wallTexture=texture(128,128,(c,w,h)=>{c.fillStyle='#b7b7b7';c.fillRect(0,0,w,h);for(let i=0;i<3500;i++){const v=90+rnd(i)*125;c.fillStyle=`rgb(${v},${v},${v})`;c.fillRect(rnd(i+9)*w,rnd(i+81)*h,1,1);}for(let y=0;y<h;y+=32){c.fillStyle='#888';c.fillRect(0,y,w,1);}});
-    this.buildGround();for(let i=0;i<5;i++){if(i!==2)this.buildHouse(-1,i);if(i!==3)this.buildHouse(1,i);}this.buildPoles();this.buildDetails();this.buildShrine();buildNeighborhood(this);this.flush();this.buildRain();this.buildMeadow();parkedCar(this.scene);this.rideScene=new PassengerRide();batchStatic(this.rideScene.scene);this.frustum=new THREE.Frustum();this.viewProjection=new THREE.Matrix4();
+    this.buildGround();for(let i=0;i<5;i++){if(i!==2)this.buildHouse(-1,i);if(i!==3)this.buildHouse(1,i);}this.buildPoles();this.buildDetails();this.buildMirrors();this.buildShrine();buildNeighborhood(this);this.flush();this.buildRain();this.buildMeadow();parkedCar(this.scene);this.rideScene=new PassengerRide();batchStatic(this.rideScene.scene);this.frustum=new THREE.Frustum();this.viewProjection=new THREE.Matrix4();
   }
   box(x,y,z,w,h,d,color=0x777777){this.boxes.push({p:[x,y,z],s:[w,h,d],color});}
   pipe(a,b,r=.04,color=0x777777){this.pipes.push({a,b,r,color});}
@@ -124,6 +124,50 @@ export class Street {
     this.lantern(3.15,2.6,-64);this.box(3.55,1.2,-64,.15,2.4,.18,0x8a8a8a);
     // Direction plaques are actual Japanese typography, then converted to glyphs.
     const direction=texture(256,96,(c,w,h)=>{c.fillStyle='#555';c.fillRect(0,0,w,h);c.fillStyle='#ddd';c.font='32px serif';c.textAlign='center';c.fillText('月見神社 →',w/2,60);});this.plane(-3.4,2.1,-75,1.2,.45,direction,0,true);
+  }
+  buildMirrors(){
+    this.mirrorSpecs=MIRRORS;
+    for(const m of this.mirrorSpecs){
+      this.box(m.x+m.side*.08,m.y,m.z,.12,m.h+.16,m.w+.18,0x9a9a9a);
+      this.box(m.x+m.side*.04,.14,m.z,.28,.28,m.w+.34,0x585858);
+      this.box(m.x+m.side*.04,m.y+m.h*.5+.08,m.z,.26,.14,m.w+.32,0xc4c4c4);
+      const glass=texture(192,320,(c,w,h)=>{
+        const g=c.createLinearGradient(0,0,w,h);g.addColorStop(0,'#d8f0ff');g.addColorStop(.5,'#e8b8ff');g.addColorStop(1,'#ffe4a8');
+        c.fillStyle=g;c.fillRect(0,0,w,h);c.strokeStyle='#ffffff';c.lineWidth=6;c.strokeRect(8,8,w-16,h-16);
+      });
+      this.plane(m.x,m.y,m.z,m.w,m.h,glass,m.side===1?-Math.PI/2:Math.PI/2,true);
+      this.glow(m.x-m.side*.85,m.z,3.4,4,.42);
+      const ml=new THREE.PointLight(0xffffff,11,6.5,2);ml.position.set(m.x-m.side*.75,2.2,m.z);this.scene.add(ml);
+    }
+  }
+  projectPoint(x,y,z){
+    this._projVec??=new THREE.Vector3();
+    this._projVec.set(x,y,z).applyMatrix4(this.camera.matrixWorldInverse);
+    const depth=-this._projVec.z;
+    if(depth<=.12)return null;
+    this._projVec.applyMatrix4(this.camera.projectionMatrix);
+    return {u:(this._projVec.x+1)*.5,v:(1-this._projVec.y)*.5,depth};
+  }
+  projectMirrors(state){
+    if(!this.mirrorSpecs||state.realm!=='street'||state.ride)return [];
+    this.camera.updateMatrixWorld();
+    const p=state.player,results=[];
+    for(const m of this.mirrorSpecs){
+      const dx=p.x-m.x,dz=p.z-m.z,dist=Math.hypot(dx,dz);
+      if(dist>18||dx*m.nx<=.05)continue;
+      const center=this.projectPoint(m.x,m.y,m.z);
+      if(!center||center.u<-.35||center.u>1.35||center.v<-.35||center.v>1.35)continue;
+      const top=this.projectPoint(m.x,m.y+m.h*.5,m.z),bot=this.projectPoint(m.x,m.y-m.h*.5,m.z);
+      const left=this.projectPoint(m.x,m.y,m.z-m.w*.5),right=this.projectPoint(m.x,m.y,m.z+m.w*.5);
+      if(!top||!bot||!left||!right)continue;
+      const u0=Math.min(left.u,right.u),u1=Math.max(left.u,right.u),v0=Math.min(top.v,bot.v),v1=Math.max(top.v,bot.v);
+      if(u1<0||u0>1||v1<0||v0>1)continue;
+      const rx=m.x-(p.x-m.x),rz=p.z,refl=this.projectPoint(rx,1.18,rz)||center;
+      const reflTop=this.projectPoint(rx,1.76,rz),reflBot=this.projectPoint(rx,.12,rz);
+      const figH=reflTop&&reflBot?Math.abs(reflBot.v-reflTop.v):Math.abs(v1-v0)*.78;
+      results.push({id:m.id,u0,u1,v0,v1,cx:(u0+u1)*.5,cy:(v0+v1)*.5,w:u1-u0,h:v1-v0,dist,rx:refl.u,ry:refl.v,figH});
+    }
+    return results;
   }
   buildShrine(){
     const z=-36;

@@ -16,5 +16,10 @@ export function act(s,id,index){const w=WORLDS.find(w=>w.id===id),p=s.puzzles[id
  if(w.kind==='balance'){p.total=Math.max(-20,Math.min(20,p.total+[2,3,-1][index]));p.solved=p.total===7;}
  return p.solved;
 }
-export function nearby(s){if(!s.started||s.ride)return null;if(s.realm==='street'&&Math.hypot(s.player.x,s.player.z+35)<3)return 'shrine';const w=WORLDS.find(w=>w.id===s.realm);return w&&Math.hypot(s.player.x,s.player.z+96)<3.4?w.id:null;}
+export const MIRRORS=[
+{id:'mirror-street',x:-3.25,y:1.38,z:-3.5,side:-1,nx:1,nz:0,w:1.35,h:2.35},
+{id:'mirror-tea',x:-9.35,y:1.38,z:-13,side:-1,nx:1,nz:0,w:1.45,h:2.35},
+{id:'mirror-garden',x:9.35,y:1.38,z:-19.5,side:1,nx:-1,nz:0,w:1.45,h:2.35}
+];
+export function nearby(s){if(!s.started||s.ride)return null;if(s.realm==='street'&&Math.hypot(s.player.x,s.player.z+35)<3)return 'shrine';if(s.realm==='street'&&MIRRORS.some(m=>Math.hypot(s.player.x-m.x,s.player.z-m.z)<2.35))return 'mirror';const w=WORLDS.find(w=>w.id===s.realm);return w&&Math.hypot(s.player.x,s.player.z+96)<3.4?w.id:null;}
 export function finish(s){if(countFragments(s)!==5)return false;s.ending=true;return true;}

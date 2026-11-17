@@ -88,6 +88,8 @@ function frame(ms){
  if(!state.paused){time+=dt;if(state.started)state.elapsed+=dt;}
  if(state.started&&!state.paused){
   if(keys.has('arrowleft'))state.player.yaw+=dt*1.4;if(keys.has('arrowright'))state.player.yaw-=dt*1.4;
+  if(keys.has('q')||keys.has('pagedown'))state.player.pitch=Math.max(-1.2,state.player.pitch-dt*1.1);
+  if(keys.has('z')||keys.has('pageup'))state.player.pitch=Math.min(.7,state.player.pitch+dt*1.1);
   state.sprinting=keys.has('shift')||Math.abs(touchMove.forward)>.98;
   state.moving=walk(state,Number(keys.has('w')||keys.has('arrowup'))-Number(keys.has('s')||keys.has('arrowdown'))+touchMove.forward,Number(keys.has('d'))-Number(keys.has('a'))+touchMove.right,dt);
   updateRide(state,dt);if(startRide(state))clearInput();
