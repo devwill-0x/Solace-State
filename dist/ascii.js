@@ -1,6 +1,5 @@
 // Every visible surface is rebuilt from printable characters, blended with
-// liquid-glass distortion, a look-down rainbow
-// body aura, and 3D iridescent glass mirror reflections.
+// liquid-glass distortion and 3D iridescent glass mirror reflections.
 import {GlassFigureRenderer} from './glass-figure.js';
 const PALETTES=[
   null, // 0: monochrome print
@@ -79,59 +78,6 @@ export class Ascii {
     halo.addColorStop(0,'rgba(120,185,255,.32)');halo.addColorStop(1,'rgba(0,0,0,0)');
     ctx.fillStyle=halo;ctx.beginPath();ctx.ellipse(cx,cy,figH*.22,figH*.46,0,0,Math.PI*2);ctx.fill();
   }
-  drawLookDownAura(ctx,state,time,lookDown){
-    if(lookDown<=.01)return 0;
-    const w=this.width,h=this.height;
-    const cx=w*.5+Math.sin(state.distance*3.5)*w*.018;
-    const cy=h*(1.08-lookDown*.46);
-    const radius=Math.min(w,h)*(.34+lookDown*.26);
-    ctx.save();
-    ctx.globalCompositeOperation='screen';
-
-    const numRays=26;
-    for(let i=0;i<numRays;i++){
-      const a=-Math.PI+(i/(numRays-1))*Math.PI*1.35-.175*Math.PI+Math.sin(time*.4+i)*.04;
-      const len=radius*(.85+.35*Math.sin(time*1.8+i*2.3));
-      const hue=(i*16+time*32)%360;
-      const rg=ctx.createLinearGradient(cx,cy,cx+Math.cos(a)*len,cy+Math.sin(a)*len);
-      rg.addColorStop(0,`hsla(${hue},100%,90%,${.55*lookDown})`);
-      rg.addColorStop(.5,`hsla(${(hue+50)%360},98%,68%,${.32*lookDown})`);
-      rg.addColorStop(1,`hsla(${(hue+95)%360},95%,55%,0)`);
-      ctx.strokeStyle=rg;ctx.lineWidth=3+2*Math.sin(i+time*2);
-      ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*len,cy+Math.sin(a)*len);ctx.stroke();
-    }
-
-    const g=ctx.createRadialGradient(cx,cy,radius*.04,cx,cy,radius);
-    const baseHue=(time*24)%360;
-    g.addColorStop(0,`rgba(255,255,255,${.92*lookDown})`);
-    g.addColorStop(.16,`hsla(${(baseHue+165)%360},100%,74%,${.78*lookDown})`);
-    g.addColorStop(.34,`hsla(${(baseHue+330)%360},98%,68%,${.64*lookDown})`);
-    g.addColorStop(.54,`hsla(${(baseHue+265)%360},96%,64%,${.50*lookDown})`);
-    g.addColorStop(.76,`hsla(${(baseHue+48)%360},100%,68%,${.34*lookDown})`);
-    g.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle=g;
-    ctx.beginPath();ctx.ellipse(cx,cy,radius*1.08,radius*.88,0,0,Math.PI*2);ctx.fill();
-
-    const stride=Math.sin(state.distance*5.2);
-    for(const side of [-1,1]){
-      const fx=cx+side*radius*.24,fy=cy-radius*(.18+side*stride*.12);
-      const fg=ctx.createRadialGradient(fx,fy,0,fx,fy,radius*.24);
-      fg.addColorStop(0,`hsla(${(baseHue+(side<0?180:300))%360},100%,92%,${.72*lookDown})`);
-      fg.addColorStop(.5,`hsla(${(baseHue+(side<0?220:45))%360},98%,68%,${.38*lookDown})`);
-      fg.addColorStop(1,'rgba(0,0,0,0)');
-      ctx.fillStyle=fg;ctx.beginPath();ctx.ellipse(fx,fy,radius*.16,radius*.24,side*-.15,0,Math.PI*2);ctx.fill();
-    }
-
-    for(let r=1;r<=4;r++){
-      const phase=((time*.85+r*.25)%1);
-      const rw=radius*(.3+phase*.85),rh=rw*.52;
-      ctx.strokeStyle=`hsla(${(baseHue+r*65)%360},100%,80%,${(1-phase)*.45*lookDown})`;
-      ctx.lineWidth=2;
-      ctx.beginPath();ctx.ellipse(cx,cy,rw,rh,0,0,Math.PI*2);ctx.stroke();
-    }
-    ctx.restore();
-    return {cx,cy,radius,lookDown};
-  }
   draw(state,time,dt){
     const source=this.street.render(state,time,dt,this.reduced),cols=this.cols,rows=this.rows;
     this.read.drawImage(source,0,0,cols,rows);
@@ -140,11 +86,6 @@ export class Ascii {
     ctx.fillStyle='#030303';ctx.fillRect(0,0,w,h);
 
     const mirrors=this.street.projectMirrors?.(state)||[];
-    const pitch=state.player?.pitch||0;
-    const lookDown=Math.max(0,Math.min(1,(-pitch-.08)/.58));
-
-    const downAura=lookDown>.01?this.drawLookDownAura(ctx,state,time,lookDown):null;
-
     for(const m of mirrors){
       const mx=m.u0*w,my=m.v0*h,mw=m.w*w,mh=m.h*h;
       ctx.save();
@@ -165,19 +106,6 @@ export class Ascii {
         const wave=Math.sin(x*.11+time*1.9)*Math.cos(y*.13-time*1.5);
         warpX+=wave*.38;
         warpY+=Math.cos(x*.09-y*.12+time*1.7)*.32;
-
-        if(downAura){
-          const dx=px-downAura.cx,dy=(py-downAura.cy)*1.18,d=Math.hypot(dx,dy),r=downAura.radius;
-          if(d<r*1.35){
-            const t=Math.max(0,1-d/(r*1.35))*downAura.lookDown;
-            const ripple=Math.sin(d*.16-time*4.8)*t*3.1;
-            const inv=1/(d+10);
-            warpX+=dx*inv*ripple;warpY+=dy*inv*ripple;
-            const core=Math.max(0,1-d/(r*.76))*downAura.lookDown*.92;
-            if(core>hole)hole=core;
-            if(t>glassTint){glassTint=t;hueShift=Math.atan2(dy,dx)+time*1.2+d*.015;}
-          }
-        }
 
         for(let mIdx=0;mIdx<mirrors.length;mIdx++){
           const m=mirrors[mIdx],mx0=m.u0*w,mx1=m.u1*w,my0=m.v0*h,my1=m.v1*h;
