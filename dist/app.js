@@ -10,7 +10,7 @@ const music=new NightMusic();let musicDeclined=false,titleActive=true;
 state.paused=true;
 function syncMusicButton(){$('title-sound').textContent=music.enabled?'Music / On':'Music / Off';$('title-sound').setAttribute('aria-pressed',String(music.enabled));}
 const opening=new Opening({canvas:$('opening-art'),stage:$('title-screen'),shock:()=>{music.shock();$('opening-caption').textContent='A crow touches the wire. A spark. A crow with devil horns appears above the name devwill.';},done:()=>{titleActive=false;$('title-screen').classList.remove('playing');music.setMode('game');setMenu(false);}});
-async function enterNight(){if(!ascii||opening.mode==='film')return;clearInput();state.paused=true;if(menu.open)menu.close();soundLevel();if(!musicDeclined)await music.start();music.setMode('title');syncMusicButton();$('title-screen').classList.add('playing');$('skip-opening').hidden=false;$('opening-caption').textContent='Crows wait on a power line. One takes flight.';opening.play();$('skip-opening').focus({preventScroll:true});}
+async function enterNight(){if(!ascii||opening.mode==='film')return;clearInput();state.paused=true;if(menu.open)menu.close();soundLevel();if(!musicDeclined)await music.start();music.setMode('title');music.beginBuild();syncMusicButton();$('title-screen').classList.add('playing');$('skip-opening').hidden=false;$('opening-caption').textContent='Crows wait on a power line. One takes flight.';opening.play();$('skip-opening').focus({preventScroll:true});}
 $('enter-night').onclick=enterNight;
 $('skip-opening').onclick=()=>opening.finish();
 $('title-sound').onclick=async()=>{await music.toggle();musicDeclined=!music.enabled;syncMusicButton();};

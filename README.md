@@ -41,3 +41,7 @@ A dedicated main menu shows ASCII crows on power lines, rain, and a quiet title.
 The original procedural soundtrack combines a soft suspended drone, sparse piano-like tones and a restrained electrical cue. Browser audio starts only after a click/tap. Title and pause menus offer music controls; music softens during exploration and fades when the tab is hidden. Rain ambience has its own switch. The title renderer replaces world rendering while open, and reduced-motion preferences disable rain movement and the logo fade.
 
 Browser validation covers the complete opening, automatic game entry, music activation/muting, replay, Escape/button skipping, saved-game continuation and mobile layout with reduced motion.
+
+### Gothic rock arrangement
+
+The original score now builds at 96 BPM: exposed piano-like notes and organ lead into bass, stereo distorted power-chord riffs, kick, snare and cymbals. Entering/replaying the intro resets the build; the shock cue releases the full arrangement. The four-chord loop continues at a reduced level during exploration. Every instrument is generated locally with Web Audio; no external audio downloads are required. A compressor and restrained mix preserve headroom. Offline audio QA checks the progression, finite samples, peak level and DC offset; browser QA checks activation, mute, replay, skipping and mobile entry.
