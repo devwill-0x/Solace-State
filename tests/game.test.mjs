@@ -38,3 +38,64 @@ test('all five new portals preserve position and return to their own doorway',()
 test('five distinct puzzles grant one fragment each and unlock the ending',()=>{const s=createState();assert.equal(finish(s),false);act(s,'dunes',0);assert.equal(s.puzzles.dunes.step,0);const answers={prism:[0,1,1,2,2,2],dunes:[2,0,1],isles:[1],mycelium:[0,2,1,0],clock:[0,0,1]};for(const [id,steps] of Object.entries(answers)){for(const step of steps)act(s,id,step);assert.equal(s.puzzles[id].solved,true);act(s,id,0);}assert.equal(countFragments(s),5);assert.equal(finish(s),true);const restored=createState(serialize(s));assert.equal(restored.ending,true);assert.equal(countFragments(restored),5);});
 test('incomplete puzzle progress is retained and false endings are rejected',()=>{const s=createState();act(s,'prism',0);act(s,'mycelium',0);const copy=createState(serialize(s));assert.equal(copy.puzzles.prism.values[0],1);assert.equal(copy.puzzles.mycelium.step,1);assert.equal(createState({ending:true}).ending,false);});
 test('mirrors on the street and courtyards offer hallucination reflection prompts without blocking paths',()=>{for(const m of MIRRORS){const s=createState({started:true,player:{x:m.x+m.nx*.9,z:m.z,yaw:0,pitch:-1.1}});assert.equal(nearby(s),'mirror');assert.equal(s.player.pitch,-1.1);}});
+
+import {SWORD_POS,TETHERS,TETHER_GOAL,claimSword,cutTether,toggleLightMode,createRuntimeCombat,performSlash,canEnterPortal} from '../dist/combat.js';
+test('sword must be claimed before entering The Crucible battle room',()=>{
+  const s=createState();s.started=true;
+  assert.equal(canEnterPortal(s,'arena1'),false);
+  s.player={x:3.1,z:-16,yaw:-Math.PI/2,pitch:0};
+  walk(s,1,0,.02);
+  assert.equal(s.realm,'street');
+  s.player={x:SWORD_POS.x,z:SWORD_POS.z+.5,yaw:0,pitch:0};
+  assert.equal(nearby(s),'sword');
+  assert.equal(claimSword(s),true);
+  assert.equal(s.quest.sword,true);
+  assert.equal(canEnterPortal(s,'arena1'),true);
+  s.player={x:3.1,z:-16,yaw:-Math.PI/2,pitch:0};
+  walk(s,1,0,.02);
+  assert.equal(s.realm,'arena1');
+});
+
+test('cutting enough bad tethers unlocks the switch and progressive portals advance through battle tiers',()=>{
+  const s=createState();s.started=true;
+  claimSword(s);
+  const rt=createRuntimeCombat();
+  // Enter Battle Room 1
+  s.player={x:3.1,z:-16,yaw:-Math.PI/2,pitch:0};walk(s,1,0,.02);
+  assert.equal(s.realm,'arena1');
+  assert.equal(canEnterPortal(s,'arena2'),false);
+
+  // Defeat enemies & slice both tethers in arena1 via performSlash
+  performSlash(s,rt,0);
+  rt.swingCooldown=0;
+  for(const e of rt.enemies)e.alive=false;
+  for(const tid of ['crucible-1','crucible-2']){
+    const t=TETHERS.find(x=>x.id===tid);
+    s.player={x:t.x,z:t.z+1.2,yaw:0,pitch:0};
+    rt.swingCooldown=0;
+    performSlash(s,rt,1);
+  }
+  assert.equal(canEnterPortal(s,'arena2'),true);
+  // Step north through Progressive Portal II
+  s.player={x:0,z:-112.9,yaw:0,pitch:0};
+  walk(s,1,0,.1);
+  assert.equal(s.realm,'arena2');
+  assert.equal(canEnterPortal(s,'arena3'),false);
+
+  // Sever additional bad tethers to reach TETHER_GOAL (6) and unlock Switch
+  for(const tid of ['spire-1','spire-2','street-1','street-2']){
+    cutTether(s,tid);
+  }
+  assert.equal(s.quest.tethers.length,TETHER_GOAL);
+  assert.equal(s.quest.lightUnlocked,true);
+  assert.equal(s.quest.lightMode,true);
+  assert.equal(toggleLightMode(s),false);
+  assert.equal(toggleLightMode(s),true);
+
+  const restored=createState(serialize(s));
+  assert.equal(restored.quest.sword,true);
+  assert.equal(restored.quest.tethers.length,TETHER_GOAL);
+  assert.equal(restored.quest.lightUnlocked,true);
+  assert.equal(restored.quest.lightMode,true);
+  assert.equal(restored.quest.portalTier>=2,true);
+});

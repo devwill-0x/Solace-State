@@ -4,7 +4,9 @@ import {buildNeighborhood} from './neighborhood.js';
 import {PassengerRide,parkedCar} from './ride.js';
 import {batchStatic} from './batch.js';
 import {buildBlossom} from './blossom.js';
-// The scene is never shown as pixels: its lighting is sampled into ASCII by ascii.js.
+import {ARENAS,TETHERS} from './combat.js';
+import {buildSwordPedestal,buildTetherVisual,buildBattleArena} from './battle-worlds.js';
+// The scene is never shown as pixels unless broken open by the Sword or Light Switch.
 import * as THREE from './vendor/three.module.js';
 const rnd=(n)=>{const v=Math.sin(n*127.13+37.7)*43758.5453;return v-Math.floor(v);};
 function texture(w,h,paint){const c=document.createElement('canvas');c.width=w;c.height=h;paint(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;}
@@ -13,11 +15,13 @@ export class Street {
     this.scene=new THREE.Scene();this.scene.background=new THREE.Color(0x020202);this.scene.fog=new THREE.FogExp2(0x050505,.025);
     this.camera=new THREE.PerspectiveCamera(72,1,.001,160);this.camera.rotation.order='YXZ';
     this.renderer=new THREE.WebGLRenderer({antialias:false,alpha:false,preserveDrawingBuffer:true,powerPreference:'low-power'});this.renderer.setPixelRatio(1);this.renderer.outputColorSpace=THREE.SRGBColorSpace;this.renderer.setClearColor(0x020202);this.renderer.toneMapping=THREE.NoToneMapping;
-    this.boxes=[];this.pipes=[];this.wires=[];this.lanterns=[];this.dawn=0;this.endAmount=0;
-    this.scene.add(new THREE.AmbientLight(0xffffff,.56));this.sky=new THREE.HemisphereLight(0xb6b6b6,0x303030,1.15);this.scene.add(this.sky);
-    const moon=new THREE.DirectionalLight(0xededed,1.1);moon.position.set(-3,14,9);this.scene.add(moon);
+    this.boxes=[];this.pipes=[];this.wires=[];this.lanterns=[];this.dawn=0;this.endAmount=0;this.heaven=0;this.lastHeaven=-1;
+    this.ambient=new THREE.AmbientLight(0xffffff,.56);this.scene.add(this.ambient);
+    this.sky=new THREE.HemisphereLight(0xb6b6b6,0x303030,1.15);this.scene.add(this.sky);
+    this.moon=new THREE.DirectionalLight(0xededed,1.1);this.moon.position.set(-3,14,9);this.scene.add(this.moon);
+    this.heavenSun=new THREE.DirectionalLight(0xffe6b3,0);this.heavenSun.position.set(14,26,-55);this.scene.add(this.heavenSun);
     this.wallTexture=texture(128,128,(c,w,h)=>{c.fillStyle='#b7b7b7';c.fillRect(0,0,w,h);for(let i=0;i<3500;i++){const v=90+rnd(i)*125;c.fillStyle=`rgb(${v},${v},${v})`;c.fillRect(rnd(i+9)*w,rnd(i+81)*h,1,1);}for(let y=0;y<h;y+=32){c.fillStyle='#888';c.fillRect(0,y,w,1);}});
-    this.buildGround();for(let i=0;i<5;i++){if(i!==2)this.buildHouse(-1,i);if(i!==3)this.buildHouse(1,i);}this.buildPoles();this.buildDetails();this.buildMirrors();this.buildShrine();buildNeighborhood(this);this.flush();this.buildRain();this.buildMeadow();parkedCar(this.scene);this.rideScene=new PassengerRide();batchStatic(this.rideScene.scene);this.frustum=new THREE.Frustum();this.viewProjection=new THREE.Matrix4();
+    this.buildGround();for(let i=0;i<5;i++){if(i!==2)this.buildHouse(-1,i);if(i!==3)this.buildHouse(1,i);}this.buildPoles();this.buildDetails();this.buildMirrors();this.buildShrine();buildNeighborhood(this);this.flush();this.buildRain();this.buildHeavenDecor();this.buildMeadow();parkedCar(this.scene);this.rideScene=new PassengerRide();batchStatic(this.rideScene.scene);this.frustum=new THREE.Frustum();this.viewProjection=new THREE.Matrix4();
   }
   box(x,y,z,w,h,d,color=0x777777){this.boxes.push({p:[x,y,z],s:[w,h,d],color});}
   pipe(a,b,r=.04,color=0x777777){this.pipes.push({a,b,r,color});}
@@ -28,7 +32,7 @@ export class Street {
   buildGround(){
     const pavement=texture(256,256,(c,w,h)=>{c.fillStyle='#393939';c.fillRect(0,0,w,h);for(let i=0;i<16000;i++){const n=22+rnd(i)*65;c.fillStyle=`rgb(${n},${n},${n})`;c.fillRect(rnd(i+80)*w,rnd(i+3)*h,1+rnd(i+9)*2,1);}c.strokeStyle='#1a1a1a';c.lineWidth=2;for(let y=0;y<256;y+=32){c.beginPath();c.moveTo(0,y);c.lineTo(256,y);c.stroke();for(let x=0;x<256;x+=64)c.strokeRect(x+(y%64?32:0),y,64,32);}});
     pavement.wrapS=pavement.wrapT=THREE.RepeatWrapping;pavement.repeat.set(5,50);
-    const ground=new THREE.Mesh(new THREE.PlaneGeometry(24,160),new THREE.MeshPhongMaterial({map:pavement,color:0xaaaaaa,shininess:65,specular:0x888888}));ground.rotation.x=-Math.PI/2;ground.position.z=-55;this.scene.add(ground);
+    const ground=new THREE.Mesh(new THREE.PlaneGeometry(24,160),new THREE.MeshPhongMaterial({map:pavement,color:0xaaaaaa,shininess:65,specular:0x888888}));ground.rotation.x=-Math.PI/2;ground.position.z=-55;this.scene.add(ground);this.groundMesh=ground;
     for(const side of [-1,1]){this.box(side*3.8,.07,-47,1.25,.14,126,0x696969);this.box(side*3.2,.015,-47,.14,.025,126,0x999999);for(let z=12;z> -105;z-=1.5){this.box(side*3.55,.15,z,.8,.025,.035,0x343434);if(z%6<1)for(let j=0;j<9;j++)this.box(side*3.2,.04,z+j*.055,.2,.02,.025,0x181818);}}
     for(let i=0;i<85;i++){const z=8-i*1.23,x=(rnd(i+19)-.5)*5,w=.1+rnd(i+1)*.75,d=.08+rnd(i+43)*1.7;this.box(x,.008,z,w,.008,d,0x525252);}
     // Strips of reflected shop light break up the wet paving.
@@ -132,10 +136,12 @@ export class Street {
       this.box(m.x+m.side*.04,.14,m.z,.28,.28,m.w+.34,0x585858);
       this.box(m.x+m.side*.04,m.y+m.h*.5+.08,m.z,.26,.14,m.w+.32,0xc4c4c4);
       const glass=texture(192,320,(c,w,h)=>{
-        const g=c.createLinearGradient(0,0,w,h);g.addColorStop(0,'#d8f0ff');g.addColorStop(.5,'#e8b8ff');g.addColorStop(1,'#ffe4a8');
-        c.fillStyle=g;c.fillRect(0,0,w,h);c.strokeStyle='#ffffff';c.lineWidth=6;c.strokeRect(8,8,w-16,h-16);
+        c.clearRect(0,0,w,h);
+        const g=c.createLinearGradient(0,0,w,h);g.addColorStop(0,'rgba(120,170,220,.22)');g.addColorStop(.5,'rgba(15,24,38,.12)');g.addColorStop(1,'rgba(180,210,255,.24)');
+        c.fillStyle=g;c.fillRect(0,0,w,h);c.strokeStyle='#dceeff';c.lineWidth=6;c.strokeRect(6,6,w-12,h-12);
       });
-      this.plane(m.x,m.y,m.z,m.w,m.h,glass,m.side===1?-Math.PI/2:Math.PI/2,true);
+      const mp=this.plane(m.x,m.y,m.z,m.w,m.h,glass,m.side===1?-Math.PI/2:Math.PI/2,true);
+      mp.material.transparent=true;mp.material.opacity=0.25;mp.material.depthWrite=false;
       this.glow(m.x-m.side*.85,m.z,3.4,4,.42);
       const ml=new THREE.PointLight(0xffffff,11,6.5,2);ml.position.set(m.x-m.side*.75,2.2,m.z);this.scene.add(ml);
     }
@@ -184,13 +190,54 @@ export class Street {
   }
   flush(){
     const helper=new THREE.Object3D(),color=new THREE.Color();
+    const toHeavenBox=(b,i)=>{
+      if(b.p[1]<=0.16&&b.s[1]<=0.2)return b.color>=0x808080?0xe2d8c5:0xb9c0c4;
+      if(b.s[1]>=3.5)return i%2?0xf3e7d4:0xe5c39b;
+      if(b.color>=0xb0b0b0)return 0xfff3d8;
+      if(b.color<=0x4b4b4b)return 0x524c6b;
+      return i%3===0?0x7fb0a2:i%3===1?0xd6a06b:0xcbb9a4;
+    };
+    this.boxDark=[];this.boxHeaven=[];
     const boxes=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshLambertMaterial({color:0xffffff,map:this.wallTexture}),this.boxes.length);
-    this.boxes.forEach((b,i)=>{helper.position.set(...b.p);helper.rotation.set(0,0,0);helper.scale.set(...b.s);helper.updateMatrix();boxes.setMatrixAt(i,helper.matrix);boxes.setColorAt(i,color.setHex(b.color));});boxes.computeBoundingSphere();this.scene.add(boxes);
+    this.boxes.forEach((b,i)=>{helper.position.set(...b.p);helper.rotation.set(0,0,0);helper.scale.set(...b.s);helper.updateMatrix();boxes.setMatrixAt(i,helper.matrix);boxes.setColorAt(i,color.setHex(b.color));this.boxDark.push(new THREE.Color(b.color));this.boxHeaven.push(new THREE.Color(toHeavenBox(b,i)));});boxes.computeBoundingSphere();this.scene.add(boxes);this.boxesMesh=boxes;
+    this.pipeDark=[];this.pipeHeaven=[];
     const pipes=new THREE.InstancedMesh(new THREE.CylinderGeometry(1,1,1,7),new THREE.MeshLambertMaterial({color:0xffffff}),this.pipes.length),up=new THREE.Vector3(0,1,0);
-    this.pipes.forEach((p,i)=>{const a=new THREE.Vector3(...p.a),b=new THREE.Vector3(...p.b),dir=b.clone().sub(a);helper.position.copy(a).add(b).multiplyScalar(.5);helper.quaternion.setFromUnitVectors(up,dir.clone().normalize());helper.scale.set(p.r,dir.length(),p.r);helper.updateMatrix();pipes.setMatrixAt(i,helper.matrix);pipes.setColorAt(i,color.setHex(p.color));});pipes.computeBoundingSphere();this.scene.add(pipes);
-    const wireGeo=new THREE.BufferGeometry();wireGeo.setAttribute('position',new THREE.Float32BufferAttribute(this.wires,3));this.scene.add(new THREE.LineSegments(wireGeo,new THREE.LineBasicMaterial({color:0x747474})));this.boxes=null;this.pipes=null;this.wires=null;
+    this.pipes.forEach((p,i)=>{const a=new THREE.Vector3(...p.a),b=new THREE.Vector3(...p.b),dir=b.clone().sub(a);helper.position.copy(a).add(b).multiplyScalar(.5);helper.quaternion.setFromUnitVectors(up,dir.clone().normalize());helper.scale.set(p.r,dir.length(),p.r);helper.updateMatrix();pipes.setMatrixAt(i,helper.matrix);pipes.setColorAt(i,color.setHex(p.color));this.pipeDark.push(new THREE.Color(p.color));this.pipeHeaven.push(new THREE.Color(p.color<=0x555555?0x5c6d82:0xdec49e));});pipes.computeBoundingSphere();this.scene.add(pipes);this.pipesMesh=pipes;
+    const wireGeo=new THREE.BufferGeometry();wireGeo.setAttribute('position',new THREE.Float32BufferAttribute(this.wires,3));this.wireMat=new THREE.LineBasicMaterial({color:0x747474});this.scene.add(new THREE.LineSegments(wireGeo,this.wireMat));this.boxes=null;this.pipes=null;this.wires=null;
   }
   buildRain(){const count=550,positions=new Float32Array(count*6);for(let i=0;i<count;i++){const x=(rnd(i)-.5)*18,y=rnd(i+4)*11,z=10-rnd(i+9)*110;positions.set([x,y,z,x-.015,y-.22,z],i*6);}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(positions,3));const material=new THREE.LineBasicMaterial({color:0x787878,transparent:true,opacity:.36});this.rain=new THREE.LineSegments(geo,material);this.scene.add(this.rain);}
+  buildHeavenDecor(){
+    const g=new THREE.Group();g.visible=false;
+    const orb=new THREE.Mesh(new THREE.SphereGeometry(7,24,16),new THREE.MeshBasicMaterial({color:0xfff6d4}));orb.position.set(4,16,-92);g.add(orb);
+    for(let i=0;i<3;i++){const halo=new THREE.Mesh(new THREE.RingGeometry(8+i*3.5,9.5+i*3.8,36),new THREE.MeshBasicMaterial({color:i===0?0xffe8b0:0xd4f0ff,transparent:true,opacity:.38-i*.09,side:THREE.DoubleSide,depthWrite:false}));halo.position.copy(orb.position);g.add(halo);}
+    for(let i=0;i<14;i++){const cloud=new THREE.Mesh(new THREE.SphereGeometry(3.2,10,7),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.56}));cloud.position.set(((i%5)-2)*11+Math.sin(i)*3,15+(i%4)*2.5,-22-i*6.5);cloud.scale.set(2.5,.55,1.2);g.add(cloud);}
+    const count=320,pos=new Float32Array(count*3),cols=new Float32Array(count*3),c=new THREE.Color();
+    for(let i=0;i<count;i++){pos.set([(rnd(i+11)-.5)*16,0.5+rnd(i+23)*8,8-rnd(i+37)*52],i*3);c.setHex([0xfff1a8,0xffb7d9,0xbbf6ff,0xffffff][i%4]);cols.set([c.r,c.g,c.b],i*3);}
+    const pg=new THREE.BufferGeometry();pg.setAttribute('position',new THREE.BufferAttribute(pos,3));pg.setAttribute('color',new THREE.BufferAttribute(cols,3));
+    this.heavenMotes=new THREE.Points(pg,new THREE.PointsMaterial({size:.15,vertexColors:true,transparent:true,opacity:.9}));g.add(this.heavenMotes);
+    this.heavenGroup=g;this.scene.add(g);
+  }
+  setHeaven(amount){
+    const h=Math.max(0,Math.min(1,amount));
+    if(Math.abs(h-this.lastHeaven)<0.008)return;
+    this.lastHeaven=h;
+    const c=new THREE.Color();
+    if(this.boxesMesh){
+      for(let i=0;i<this.boxDark.length;i++){c.copy(this.boxDark[i]).lerp(this.boxHeaven[i],h);this.boxesMesh.setColorAt(i,c);}
+      this.boxesMesh.instanceColor.needsUpdate=true;
+    }
+    if(this.pipesMesh){
+      for(let i=0;i<this.pipeDark.length;i++){c.copy(this.pipeDark[i]).lerp(this.pipeHeaven[i],h);this.pipesMesh.setColorAt(i,c);}
+      this.pipesMesh.instanceColor.needsUpdate=true;
+    }
+    if(this.groundMesh)this.groundMesh.material.color.setHex(0xaaaaaa).lerp(new THREE.Color(0xf6efe0),h);
+    if(this.wireMat)this.wireMat.color.setHex(0x747474).lerp(new THREE.Color(0x9fb8d4),h);
+    for(const l of this.lanterns)l.material.color.setHex(0x999999).lerp(new THREE.Color(0xffd480),h);
+    this.heavenSun.intensity=h*2.1;
+    this.ambient.color.setHex(0xffffff).lerp(new THREE.Color(0xfff4e0),h);
+    this.ambient.intensity=0.56+h*0.42;
+    if(this.heavenGroup)this.heavenGroup.visible=h>0.03;
+  }
   buildMeadow(){
     this.meadow=new THREE.Scene();this.meadow.background=new THREE.Color(0x58baff);this.meadow.fog=new THREE.Fog(0x83ceff,45,100);
     this.meadow.add(new THREE.HemisphereLight(0xffffff,0x63952a,2.4));
@@ -203,52 +250,153 @@ export class Street {
     for(let i=0;i<5;i++)add(new THREE.SphereGeometry(3,10,7),0xffffff,(rnd(i+40)-.5)*90,18+rnd(i)*10,-110-rnd(i+60)*70).scale.set(2,.45,1);
     this.portalTarget=new THREE.WebGLRenderTarget(256,256);this.portalCamera=new THREE.PerspectiveCamera();this.portalCamera.rotation.order='YXZ';
     this.portalMaterial=new THREE.ShaderMaterial({uniforms:{view:{value:this.portalTarget.texture},size:{value:new THREE.Vector2(256,256)}},vertexShader:'void main(){gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',fragmentShader:'uniform sampler2D view;uniform vec2 size;void main(){gl_FragColor=texture2D(view,gl_FragCoord.xy/size);\n#include <colorspace_fragment>\n}',side:THREE.DoubleSide});
-    const portal=(scene,x,z,angle,color,map)=>{const group=new THREE.Group();group.position.set(x,1.9,z);group.rotation.y=angle;scene.add(group);
+    const portal=(scene,x,z,angle,color)=>{const group=new THREE.Group();group.position.set(x,1.9,z);group.rotation.y=angle;scene.add(group);
       for(let i=0;i<3;i++){const rim=new THREE.Mesh(new THREE.TorusGeometry(1.05+i*.055,i===0?.075:.035,10,64),new THREE.MeshBasicMaterial({color:i===0?0xe9fcff:color,transparent:i>0,opacity:i===0?1:.55}));rim.scale.y=1.7;group.add(rim);}
       const face=new THREE.Mesh(new THREE.CircleGeometry(1.04,64),this.portalMaterial);face.scale.y=1.7;face.position.z=0;group.add(face);group.userData.face=face;
       const light=new THREE.PointLight(color,12,5);light.position.z=.3;group.add(light);return group;};
     this.blossom=buildBlossom();
-    this.streetPortal=portal(this.scene,3.12,-2,-Math.PI/2,0x00cfff,null);this.fieldPortal=portal(this.meadow,0,-85,0,0xff922f,null);
+    this.streetPortal=portal(this.scene,3.12,-2,-Math.PI/2,0x00cfff);this.fieldPortal=portal(this.meadow,0,-85,0,0xff922f);
     this.blossomTarget=new THREE.WebGLRenderTarget(256,256);this.blossomMaterial=this.portalMaterial.clone();this.blossomMaterial.uniforms.view.value=this.blossomTarget.texture;
-    this.blossomEntry=portal(this.scene,3.12,-12,-Math.PI/2,0xff73c5,null);this.blossomExit=portal(this.blossom,0,-85,0,0xff73c5,null);
+    this.blossomEntry=portal(this.scene,3.12,-12,-Math.PI/2,0xff73c5);this.blossomExit=portal(this.blossom,0,-85,0,0xff73c5);
     this.blossomEntry.userData.face.material=this.blossomMaterial;this.blossomExit.userData.face.material=this.blossomMaterial;
     batchStatic(this.meadow);batchStatic(this.blossom);for(const field of [this.meadow,this.blossom]){field.scale.z=.6;field.position.z=-34;}
     this.portalPairs=[{realm:'meadow',z:-2,scene:this.meadow,entry:this.streetPortal,exit:this.fieldPortal,target:this.portalTarget},{realm:'blossom',z:-12,scene:this.blossom,entry:this.blossomEntry,exit:this.blossomExit,target:this.blossomTarget}];
     this.memoryStones=WORLDS.map((w,i)=>{const stone=new THREE.Mesh(new THREE.OctahedronGeometry(.24),new THREE.MeshBasicMaterial({color:0x424b60}));stone.position.set((i-2)*.65,1.65,-35.7);this.scene.add(stone);const socket=new THREE.Mesh(new THREE.TorusGeometry(.32,.05,6,24),new THREE.MeshLambertMaterial({color:0xa6abb7}));socket.position.copy(stone.position);this.scene.add(socket);return stone;});
     for(const w of WORLDS){const world=buildDream(w),target=new THREE.WebGLRenderTarget(256,256),material=this.portalMaterial.clone();material.uniforms.view.value=target.texture;
-      const entry=portal(this.scene,3.12,w.z,-Math.PI/2,w.color,null),exit=portal(world,0,-85,0,w.color,null);entry.userData.face.material=exit.userData.face.material=material;
+      const entry=portal(this.scene,3.12,w.z,-Math.PI/2,w.color),exit=portal(world,0,-85,0,w.color);entry.userData.face.material=exit.userData.face.material=material;
       const name=texture(512,96,(c,width,height)=>{c.fillStyle='#111522';c.fillRect(0,0,width,height);c.strokeStyle='#c9d7e8';c.strokeRect(4,4,width-8,height-8);c.fillStyle='#eef3ff';c.font='28px monospace';c.textAlign='center';c.fillText(w.name.toUpperCase(),width/2,59);});this.plane(3.18,4.1,w.z,3,.55,name,-Math.PI/2,true);
       this.portalPairs.push({realm:w.id,z:w.z,scene:world,entry,exit,target});
     }
+    // Sword pedestal & street Bad Tethers
+    this.swordPedestal=buildSwordPedestal(this.scene);
+    this.streetTethers=TETHERS.filter(t=>t.realm==='street').map(t=>{const vis=buildTetherVisual(t);this.scene.add(vis.group);return vis;});
 
-
+    // Progressive Battle Rooms: street(-16) <-> arena1 <-> arena2 <-> arena3
+    this.arenaScenes={};
+    for(const a of ARENAS){
+      const built=buildBattleArena(a,(sc,x,z,ang,col)=>portal(sc,x,z,ang,col));
+      this.arenaScenes[a.id]={spec:a,...built};
+    }
+    const a1Target=new THREE.WebGLRenderTarget(256,256),a1Mat=this.portalMaterial.clone();a1Mat.uniforms.view.value=a1Target.texture;
+    this.crucibleEntry=portal(this.scene,3.12,-16,-Math.PI/2,0x7df0ff);
+    this.crucibleEntry.userData.face.material=this.arenaScenes.arena1.exitPortal.userData.face.material=a1Mat;
+    this.crucibleSeal=new THREE.Group();this.crucibleSeal.position.set(3.02,1.9,-16);this.crucibleSeal.rotation.y=-Math.PI/2;
+    for(let i=-1;i<=1;i++){const bar=new THREE.Mesh(new THREE.BoxGeometry(2.2,.08,.08),new THREE.MeshBasicMaterial({color:0xff3b6e}));bar.position.y=i*.7;bar.rotation.z=i*.26;this.crucibleSeal.add(bar);}
+    this.scene.add(this.crucibleSeal);
+    const cname=texture(512,96,(c,width,height)=>{c.fillStyle='#181020';c.fillRect(0,0,width,height);c.strokeStyle='#ff8eb3';c.strokeRect(4,4,width-8,height-8);c.fillStyle='#e6fbff';c.font='28px monospace';c.textAlign='center';c.fillText('THE CRUCIBLE - BATTLE ROOM',width/2,59);});
+    this.plane(3.18,4.1,-16,3,.55,cname,-Math.PI/2,true);
+    this.portalPairs.push({realm:'arena1',z:-16,scene:this.arenaScenes.arena1.scene,entry:this.crucibleEntry,exit:this.arenaScenes.arena1.exitPortal,target:a1Target});
+    // Wire progressive north portal materials
+    const wireChain=(fromId,toId,col)=>{
+      const from=this.arenaScenes[fromId],to=this.arenaScenes[toId];
+      const target=new THREE.WebGLRenderTarget(256,256),mat=this.portalMaterial.clone();mat.uniforms.view.value=target.texture;
+      from.nextPortal.userData.face.material=to.exitPortal.userData.face.material=mat;
+      return {fromId,toId,fromScene:from.scene,toScene:to.scene,entry:from.nextPortal,exit:to.exitPortal,target};
+    };
+    this.arenaLinks=[wireChain('arena1','arena2',0xd088ff),wireChain('arena2','arena3',0xffd37d)];
   }
-  resize(w,h,aspect){this.renderer.setSize(w,h,false);for(const pair of this.portalPairs){pair.target.setSize(w,h);pair.entry.userData.face.material.uniforms.size.value.set(w,h);}this.camera.aspect=aspect;this.camera.updateProjectionMatrix();}
+  resize(w,h,aspect){
+    const rw=Math.max(120,Math.min(1280,Math.round(w))),rh=Math.max(80,Math.min(800,Math.round(h)));
+    this.renderer.setSize(rw,rh,false);
+    const pw=Math.min(360,rw),ph=Math.min(360,rh);
+    for(const pair of this.portalPairs){pair.target.setSize(pw,ph);pair.entry.userData.face.material.uniforms.size.value.set(pw,ph);}
+    for(const link of (this.arenaLinks||[])){link.target.setSize(pw,ph);link.entry.userData.face.material.uniforms.size.value.set(pw,ph);}
+    this.camera.aspect=aspect;this.camera.updateProjectionMatrix();
+  }
 
-  render(state,time,dt,reduced=false){
-    
+  render(state,time,dt,reduced=false,forceHeaven=null){
     if(state.ride)return this.rideScene.render(this.renderer,this.camera,state,reduced);
-    this.dawn+=(Math.min(1,Math.max(0,(state.ending?1:(state.elapsed-180)/240)))-this.dawn)*Math.min(dt*.18,.1);this.sky.intensity=1.15+this.dawn*1.3;
-    const bg=Math.round(this.dawn*35);this.scene.background.setHex((bg<<16)|(bg<<8)|bg);this.scene.fog.color.copy(this.scene.background);
+    const cutFrac=Math.min(1,(state.quest?.tethers?.length||0)/6);
+    const targetHeaven=forceHeaven!==null?forceHeaven:(state.quest?.lightMode?1:0);
+    if(forceHeaven!==null)this.heaven=targetHeaven;
+    else this.heaven+=(targetHeaven-this.heaven)*Math.min(1,dt*4.5||1);
+    const heaven=forceHeaven!==null?forceHeaven:this.heaven;
+
+    this.dawn+=(Math.min(1,Math.max(0,(state.ending?1:(state.elapsed-180)/240)))-this.dawn)*Math.min(dt*.18,.1);
+    const skyGlow=Math.max(heaven,this.dawn*0.65);
+    this.sky.intensity=1.15+this.dawn*1.3+heaven*1.75;
+    this.sky.color.setHex(0xb6b6b6).lerp(new THREE.Color(0xcceeff),heaven);
+    this.sky.groundColor.setHex(0x303030).lerp(new THREE.Color(0xb69572),heaven);
+    const darkBg=new THREE.Color(0x020202).lerp(new THREE.Color(0x23262e),this.dawn);
+    const heavenBg=new THREE.Color(0x9bd7ff);
+    this.scene.background.copy(darkBg).lerp(heavenBg,heaven);
+    this.scene.fog.color.copy(this.scene.background).lerp(new THREE.Color(0xdcf0ff),heaven*0.65);
+    this.scene.fog.density=0.025*(1-heaven*0.72);
+    this.setHeaven(heaven);
+
     this.memoryStones.forEach((stone,i)=>{stone.material.color.setHex(state.puzzles?.[WORLDS[i].id]?.solved?WORLDS[i].color:0x424b60);if(!reduced)stone.rotation.y=time*.3;});
+    this.swordPedestal?.update(time,!!state.quest?.sword);
+    for(const tv of (this.streetTethers||[]))tv.update(time,!!state.quest?.tethers?.includes(tv.id));
+    if(this.crucibleSeal){
+      const unlocked=!!state.quest?.sword;
+      this.crucibleSeal.visible=!unlocked;
+      this.crucibleEntry.userData.face.visible=unlocked;
+    }
+
     const p=state.player,bob=state.moving&&!reduced?Math.sin(state.distance*7)*.018:0;
-    
-    this.camera.position.set(p.x,1.64+bob,p.z);this.camera.rotation.set(p.pitch,p.yaw,0);this.sun.visible=this.dawn>.15;
-    if(!reduced&&!state.paused){const pos=this.rain.geometry.attributes.position;for(let i=0;i<pos.count;i+=2){let y=pos.getY(i)-dt*5;if(y<0)y=11;pos.setY(i,y);pos.setY(i+1,y-.22);}pos.needsUpdate=true;}
-    this.rain.material.opacity=.36*(1-this.dawn);this.cat.rotation.y=.2+Math.sin(time*.6)*.08;
+    this.camera.position.set(p.x,1.64+bob,p.z);this.camera.rotation.set(p.pitch,p.yaw,0);
+    this.sun.visible=this.dawn>.15||heaven>.05;
+    if(!reduced&&!state.paused){
+      const pos=this.rain.geometry.attributes.position;
+      for(let i=0;i<pos.count;i+=2){let y=pos.getY(i)-dt*5;if(y<0)y=11;pos.setY(i,y);pos.setY(i+1,y-.22);}
+      pos.needsUpdate=true;
+      if(this.heavenMotes&&heaven>.05){
+        const mp=this.heavenMotes.geometry.attributes.position;
+        for(let i=0;i<mp.count;i++){let y=mp.getY(i)+dt*(.35+(i%5)*.08);if(y>9)y=.4;mp.setY(i,y);}
+        mp.needsUpdate=true;
+      }
+    }
+    this.rain.material.opacity=.36*(1-this.dawn)*(1-heaven);this.rain.visible=heaven<.95;
+    this.cat.rotation.y=.2+Math.sin(time*.6)*.08;
+
     this.camera.updateMatrixWorld();this.viewProjection.multiplyMatrices(this.camera.projectionMatrix,this.camera.matrixWorldInverse);this.frustum.setFromProjectionMatrix(this.viewProjection);
-    for(const pair of this.portalPairs)pair.scene.userData.update?.(time,reduced,state.puzzles?.[pair.realm]);
+    for(const pair of this.portalPairs)pair.scene.userData.update?.(time,reduced,state.puzzles?.[pair.realm],state.quest,state.runtime,heaven);
+    for(const key of ['arena2','arena3'])this.arenaScenes?.[key]?.scene.userData.update?.(time,reduced,null,state.quest,state.runtime,heaven);
     const remote=this.portalCamera;
     for(const pair of this.portalPairs){pair.entry.userData.face.visible=false;pair.exit.userData.face.visible=false;}
-    for(const pair of this.portalPairs){if(state.realm!=='street'&&state.realm!==pair.realm)continue;const active=state.realm==='street'?pair.entry:pair.exit;active.updateWorldMatrix(true,true);const sphere=new THREE.Sphere(active.getWorldPosition(new THREE.Vector3()),2);if(!this.frustum.intersectsSphere(sphere))continue;
+    for(const link of (this.arenaLinks||[])){link.entry.userData.face.visible=false;link.exit.userData.face.visible=false;}
+
+    for(const pair of this.portalPairs){
+      if(pair.realm==='arena1'&&!state.quest?.sword)continue;
+      if(state.realm!=='street'&&state.realm!==pair.realm)continue;
+      const active=state.realm==='street'?pair.entry:pair.exit;
+      active.updateWorldMatrix(true,true);
+      const sphere=new THREE.Sphere(active.getWorldPosition(new THREE.Vector3()),2);
+      if(!this.frustum.intersectsSphere(sphere))continue;
       remote.copy(this.camera);remote.rotation.order='YXZ';
       if(state.realm!=='street'){remote.position.set(3.12-(p.z+85),this.camera.position.y,p.x+pair.z);remote.rotation.set(p.pitch,p.yaw-Math.PI/2,0);}
       else{remote.position.set(p.z-pair.z,this.camera.position.y,-85-(p.x-3.12));remote.rotation.set(p.pitch,p.yaw+Math.PI/2,0);}
       this.renderer.clippingPlanes=[state.realm!=='street'?new THREE.Plane(new THREE.Vector3(-1,0,0),3.12):new THREE.Plane(new THREE.Vector3(0,0,-1),-85)];
       this.renderer.setRenderTarget(pair.target);this.renderer.render(state.realm!=='street'?this.scene:pair.scene,remote);
     }
+    for(const link of (this.arenaLinks||[])){
+      const req=link.toId==='arena2'?2:3;
+      if((state.quest?.portalTier||0)<req)continue;
+      if(state.realm!==link.fromId&&state.realm!==link.toId)continue;
+      const forward=state.realm===link.fromId;
+      const active=forward?link.entry:link.exit;
+      active.updateWorldMatrix(true,true);
+      const sphere=new THREE.Sphere(active.getWorldPosition(new THREE.Vector3()),2.2);
+      if(!this.frustum.intersectsSphere(sphere))continue;
+      remote.copy(this.camera);remote.rotation.order='YXZ';
+      remote.position.set(p.x,this.camera.position.y,forward?(p.z+28):(p.z-28));
+      remote.rotation.set(p.pitch,p.yaw,0);
+      this.renderer.clippingPlanes=[];
+      this.renderer.setRenderTarget(link.target);
+      this.renderer.render(forward?link.toScene:link.fromScene,remote);
+    }
+
     this.renderer.setRenderTarget(null);this.renderer.clippingPlanes=[];
-    for(const pair of this.portalPairs){pair.entry.userData.face.visible=true;pair.exit.userData.face.visible=true;}
-    this.renderer.render(this.portalPairs.find(pair=>pair.realm===state.realm)?.scene??this.scene,this.camera);return this.renderer.domElement;
+    for(const pair of this.portalPairs){
+      const open=pair.realm!=='arena1'||!!state.quest?.sword;
+      pair.entry.userData.face.visible=open;pair.exit.userData.face.visible=true;
+    }
+    for(const link of (this.arenaLinks||[])){
+      const req=link.toId==='arena2'?2:3;
+      const open=(state.quest?.portalTier||0)>=req;
+      link.entry.userData.face.visible=open;link.exit.userData.face.visible=true;
+    }
+    this.renderer.render(this.portalPairs.find(pair=>pair.realm===state.realm)?.scene??this.arenaScenes?.[state.realm]?.scene??this.scene,this.camera);
+    return this.renderer.domElement;
   }
 }

@@ -364,8 +364,8 @@ void main() {
   glassColor += dispersion * crispRim * 0.62;
   glassColor += vec3(1.0) * (spec1 * 1.55 + spec2 * 1.15 + crispRim * 0.92);
 
-  float alpha = clamp(0.10 + fresnel * 0.80 + bandStrength * 0.56 + spec1 + spec2, 0.10, 0.98) * uOpacityScale;
-  gl_FragColor = vec4(glassColor, alpha);
+  float alpha = clamp(0.24 + fresnel * 0.68 + bandStrength * 0.50 + spec1 + spec2, 0.22, 0.96) * uOpacityScale;
+  gl_FragColor = vec4(glassColor * alpha, alpha);
 }
 `;
 
@@ -374,17 +374,16 @@ export class GlassFigureRenderer {
     try {
       this.renderer = new THREE.WebGLRenderer({
         antialias: true,
-        alpha: false,
+        alpha: true,
         preserveDrawingBuffer: true,
         powerPreference: 'low-power'
       });
       this.renderer.setPixelRatio(1);
       this.renderer.setSize(300, 520, false);
       this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-      this.renderer.setClearColor(0x212d3c, 1);
+      this.renderer.setClearColor(0x000000, 0);
 
       this.scene = new THREE.Scene();
-      this.scene.background = new THREE.Color(0x212d3c);
       this.camera = new THREE.PerspectiveCamera(34, 300 / 520, 0.1, 20);
       this.camera.position.set(0, 0.02, 3.25);
 
