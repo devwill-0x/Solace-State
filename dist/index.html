@@ -6,15 +6,16 @@
 <link rel="stylesheet" href="style.css"><script type="module" src="app.js"></script></head>
 <body><main id="game" aria-label="Solace State, a quiet walking game">
 <canvas id="world" tabindex="0" aria-label="ASCII Japanese street. WASD walks. Drag or arrow keys look around. Escape opens the menu. On touchscreens, drag the left half to move and the right half to look; tap with two fingers for the menu."></canvas>
-<div id="loading" role="status">Preparing the street?</div>
+<div id="loading" role="status">Preparing the street...</div>
 <div class="glass fatal-error" id="fatal-error" hidden><h1>A little trouble starting.</h1><p id="fatal-message"></p><button onclick="location.reload()">Try again</button></div>
-</main>
+<button id="interact" class="glass" hidden></button></main>
 <dialog id="menu" class="glass" aria-labelledby="menu-title">
-<h1 id="menu-title">Solace State</h1>
+<h1 id="menu-title">Solace State</h1><p>Five doors. Five lost memories.<br>Help this street reach morning.</p><p id="journey-progress"></p><button id="journal">Read your journal</button>
 <p class="desktop-help">WASD to walk. Hold Shift to sprint. Drag or use the arrow keys to look.<br>Walk up to the parked car for a passenger ride. Escape opens this menu.</p>
 <p class="touch-help">Left thumb to walk; drag farther to sprint. Right thumb to look.<br>Tap with two fingers to open this menu.</p>
-<button id="begin" class="primary" disabled>Preparing the street?</button>
+<button id="begin" class="primary" disabled>Preparing the street...</button>
 <div class="settings"><button id="sound" aria-pressed="false">Rain audio <span>Off</span></button><button id="quality" aria-label="Change ASCII density">Text detail <span>Fine</span></button></div>
 <button id="leave-ride" hidden>End drive and return to the street</button><button id="restart" hidden>Start a fresh walk</button>
 </dialog>
+<dialog id="story" class="glass" aria-labelledby="story-title"><span class="story-kicker">A MEMORY OF MORNING</span><h2 id="story-title"></h2><p id="story-text"></p><p id="story-status" aria-live="polite"></p><details id="story-hint"><summary>Read the inscription</summary><p id="clue"></p></details><div id="story-actions"></div><div class="story-footer"><button id="story-reset">Reset the stones</button><button id="story-close">Keep exploring - Esc</button></div></dialog>
 <noscript>Enable JavaScript to walk through this ASCII world.</noscript></body></html>

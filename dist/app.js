@@ -1,3 +1,4 @@
+import {createStory} from './story-ui.js';
 import {createState,walk,serialize,startRide,endRide,updateRide} from './game.js';
 const $=id=>document.getElementById(id),canvas=$('world'),menu=$('menu'),storageKey='solace-dream-v3',keys=new Set(),touches=new Map();
 let saved;try{saved=JSON.parse(localStorage.getItem(storageKey));}catch{}
@@ -6,21 +7,26 @@ const touchMove={forward:0,right:0};
 function save(){try{localStorage.setItem(storageKey,JSON.stringify(serialize(state)));}catch{}}
 function clearInput(){keys.clear();drag=null;touches.clear();twoTap=null;touchMove.forward=0;touchMove.right=0;}
 function soundLevel(){if(audio)audio.master.gain.setTargetAtTime(muted||state.paused?0:.24,audio.ctx.currentTime,.3);}
+const story=createStory({getState:()=>state,save,pause:value=>{clearInput();state.paused=value;if(value&&document.pointerLockElement)document.exitPointerLock();if(!value){if(!state.started){state.paused=true;menu.showModal();}else canvas.focus({preventScroll:true});}soundLevel();}});
 function setMenu(open){
+ if(story.isOpen())story.close();
  if(!open&&!ascii)return;
  clearInput();state.paused=open;$('leave-ride').hidden=!state.ride;
- if(open){if(document.pointerLockElement)document.exitPointerLock();$('begin').textContent=ascii?(state.started?(state.ride?'Continue the drive':'Keep walking'):'Walk into the night'):'Preparing the street?';$('restart').hidden=!state.started;if(!menu.open)menu.showModal();}
+ if(open){if(document.pointerLockElement)document.exitPointerLock();$('begin').textContent=ascii?(state.started?(state.ride?'Continue the drive':'Keep walking'):'Walk into the night'):'Preparing the street...';$('restart').hidden=!state.started;if(!menu.open)menu.showModal();}
  else{state.started=true;if(menu.open)menu.close();canvas.focus({preventScroll:true});}
  soundLevel();save();
 }
 $('leave-ride').onclick=()=>{endRide(state);setMenu(false);};
 $('begin').onclick=()=>setMenu(false);
 menu.addEventListener('cancel',e=>{e.preventDefault();if(state.started)setMenu(false);});
-$('restart').onclick=()=>{state=createState();setMenu(false);};
+$('restart').onclick=()=>{if(!confirm('Start over and clear your recovered memories?'))return;state=createState();setMenu(false);};
 $('quality').onclick=()=>{if(ascii)$('quality').innerHTML='Text detail <span>'+(ascii.toggle()==='HIGH'?'Fine':'Coarse')+'</span>';};
 window.addEventListener('keydown',e=>{
  if(e.ctrlKey||e.metaKey||e.altKey||e.target.matches('input,textarea,select'))return;
  const k=e.key.toLowerCase();
+ if(k==='escape'&&story.isOpen()){e.preventDefault();story.close();return;}
+ if(story.isOpen())return;
+ if(k==='e'&&!e.repeat&&!state.paused){e.preventDefault();story.open();return;}
  if(k==='escape'){e.preventDefault();if(!e.repeat&&state.started)setMenu(!menu.open);return;}
  if(menu.open)return;
  if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();
@@ -86,6 +92,7 @@ function frame(ms){
   state.moving=walk(state,Number(keys.has('w')||keys.has('arrowup'))-Number(keys.has('s')||keys.has('arrowdown'))+touchMove.forward,Number(keys.has('d'))-Number(keys.has('a'))+touchMove.right,dt);
   updateRide(state,dt);if(startRide(state))clearInput();
  }else state.moving=false;
+ story.update();
  saveAge+=dt;if(saveAge>5){save();saveAge=0;}
  renderAge+=dt;if(renderAge>=1/30){ascii.draw(state,time,state.paused?0:renderAge);renderAge=0;}
  requestAnimationFrame(frame);

@@ -1,34 +1,35 @@
-# Solace State
+# Solace State: A Memory of Morning
 
-A first-person ASCII walk through a rain-soaked Japanese street. The walking view is only the street: no HUD, labels, hands, player body, people, conversations, objectives, or collection prompts. The night gradually lightens into morning.
+A surreal ASCII exploration and puzzle game. A rain-soaked Japanese neighborhood has forgotten how to reach morning. Five named doorways lead to lost memories; solve their altars and return the fragments to the shrine to complete the story. The ending leaves the worlds open for exploration.
 
-The start/pause menu uses almost-clear glass (7% background tint, 3px blur) without a dark backdrop. Sound, text density, and restart live inside this menu. The menu is shown on first entry; subsequent visits resume the saved walk with no overlays.
+## Worlds and puzzles
+
+- **The Glass Tide**: faceted crystals and a luminous sea; align three prisms.
+- **The Inverted Hour**: suspended pyramids above dunes; interpret a three-bell sequence.
+- **The Unmoored Sky**: floating islands and orbital rings; connect a three-beacon light circuit.
+- **The Listening Wood**: giant luminous mushrooms and drifting motes; reconstruct a four-note echo.
+- **The Borrowed Tomorrow**: ruined columns and rotating gears; balance borrowed hours.
+
+The original meadow and cherry-blossom valley remain restful destinations. The compact street includes a tea courtyard, pond garden, shrine and a parked car offering a 50-second passenger ride.
+
+All seven portal pairs use live camera-transformed views and preserve heading and sideways position on crossing. Named plaques identify the five story doors. Puzzle monuments are a short walk beyond each new portal. Each altar provides its own inscription, feedback, reset and recoverable fragment. The journal records the goal and every recovered passage. A new walk clears story progress only after confirmation.
 
 ## Controls
 
-- WASD: walk and sidestep. Up/down arrows also walk.
-- Left/right arrows, dragging, or captured mouse: look around.
-- Escape: open/close the menu.
-- Touch: drag the left half to walk, the right half to look. Tap with two fingers to open the menu. No visible controls cover the street.
+WASD to walk; Shift to sprint. Drag, mouse capture or left/right arrows to look. **E** or the nearby touch button opens an altar or the shrine. Escape closes a story panel or opens the menu. Read the journal from the menu.
 
-Position and elapsed time use the existing `solace-dream-v3` localStorage key. Older saves retain the walk position while discarded conversation data can no longer interrupt walking or create invisible collisions.
+On touchscreens, drag the left half to move (farther to sprint), the right half to look, and tap with two fingers to open the menu. Walk up to the car on the left to enter the passenger ride; End drive in the menu returns to the street.
 
-## Run and verify
+Positions, partial puzzles, recovered fragments and the ending are saved in browser localStorage (`solace-dream-v3`). Older saves migrate without removing existing exploration progress. Reloading during a ride returns to its starting position.
+
+## Run
 
 `python -m http.server 4173 --directory dist`
 
 `node --test tests/game.test.mjs`
 
-Movement tests cover the full street, physical boundaries, camera-relative movement, pause, and older saved-state recovery. Browser QA checks the empty walking UI, transparent menu, desktop/touch navigation, settings, and resume behavior.
+No runtime dependencies are downloaded. Three.js r170 and its MIT license are included in dist/vendor. All world models are procedural code. Repeated scenery is instanced, colored glyphs are cached, and portal views outside the camera frustum are skipped. Reduced-motion preferences disable world rotation and head bob.
 
-Three.js r170 and its MIT license are included in dist/vendor. No external runtime requests or build step are required.
+## Validation
 
-## Compact worlds and passenger ride
-
-The main street is now about 47 metres long (previously 97). The pink portal is at z=-12; outdoor destinations have shorter depths. Hold Shift to sprint, or drag farther with your left thumb on touchscreens. Walk up to the car parked on the left near z=-10 to start a 50-second passenger ride. Look around while another person drives past blossom trees, water, and mountains. Escape/two-finger tap opens the menu, where End drive returns you safely to the street. The drive pauses with the menu and ends automatically.
-
-Repeated outdoor meshes are instanced, off-screen portal views are skipped, colored glyphs use a cached atlas, and saves are throttled to five seconds while retaining immediate input/exit saves.
-
-## Neighborhood layout
-
-The compact main street now opens into a tea courtyard on the left and a moon garden on the right. Lantern strings mark junctions; portal thresholds, entry paving, benches, pond banks and a marked parking bay give the route distinct landmarks. Both courtyards are walkable, with solid tree/pond boundaries and saved-position support.
+Movement and puzzle tests cover every new portal round trip, all five puzzle solutions, incorrect-input handling, partial progress, completion gating and saved endings, as well as the existing ride and map collision behavior. Browser QA plays all five puzzles using their controls, returns through their portals, completes the shrine, reloads the save, and checks the mobile journal.
