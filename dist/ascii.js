@@ -30,7 +30,8 @@ export class Ascii {
     this.cw = w / this.cols;
     this.ch = this.cw * 1.85;
     this.rows = Math.ceil(h / this.ch);
-    const dpr = Math.min(devicePixelRatio || 1, 2);
+    // Keep the output and glyph sheets within browser canvas limits.
+    const dpr = Math.min(devicePixelRatio || 1, 2, 4096 / Math.max(w, h), Math.sqrt(12000000 / (w * h)));
     this.dpr = dpr;
     this.canvas.width = Math.round(w * dpr);
     this.canvas.height = Math.round(h * dpr);
@@ -106,8 +107,9 @@ export class Ascii {
     }
 
     const colCanvas = document.createElement('canvas');
-    colCanvas.width = tw * 11;
-    colCanvas.height = th * 64;
+    const colorColumns = 8;
+    colCanvas.width = tw * 11 * colorColumns;
+    colCanvas.height = th * 8;
     const cc = colCanvas.getContext('2d', { alpha: false });
     cc.fillStyle = '#030303';
     cc.fillRect(0, 0, colCanvas.width, colCanvas.height);
@@ -116,13 +118,13 @@ export class Ascii {
     cc.textBaseline = 'middle';
     for (let color = 0; color < 64; color++) {
       cc.fillStyle = `rgb(${(color >> 4) * 64 + 42},${((color >> 2) & 3) * 64 + 42},${(color & 3) * 64 + 42})`;
-      for (let k = 0; k < 11; k++) cc.fillText(ramps[0][k], (k + 0.5) * tw, (color + 0.5) * th);
+      for (let k = 0; k < 11; k++) cc.fillText(ramps[0][k], ((color % colorColumns) * 11 + k + 0.5) * tw, (Math.floor(color / colorColumns) + 0.5) * th);
     }
     const cData = new Uint32Array(cc.getImageData(0, 0, colCanvas.width, colCanvas.height).data.buffer);
     this.colorTiles = new Array(64 * 11);
     for (let color = 0; color < 64; color++) {
       for (let k = 0; k < 11; k++) {
-        this.colorTiles[color * 11 + k] = extractTile(cData, colCanvas.width, k * tw, color * th);
+        this.colorTiles[color * 11 + k] = extractTile(cData, colCanvas.width, ((color % colorColumns) * 11 + k) * tw, Math.floor(color / colorColumns) * th);
       }
     }
   }

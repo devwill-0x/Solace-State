@@ -221,7 +221,7 @@ function frame(ms){
 
 async function boot(){
   try{
-    const [{Street},{Ascii}]=await Promise.all([import('./street.js'),import('./ascii.js')]);
+    const [{Street},{Ascii}]=await Promise.all([import('./street.js'),import('./ascii.js?v=canvas-fix')]);
     const street=new Street();ascii=new Ascii(canvas,street);ascii.draw(state,0,0);
     syncMusicButton();$('loading').hidden=true;$('begin').disabled=false;$('enter-night').disabled=false;
     $('enter-night').textContent=state.started?'Return to the night':'Enter the night';
