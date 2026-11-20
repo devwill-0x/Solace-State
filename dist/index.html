@@ -1,26 +1,26 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#030303">
-<meta name="description" content="Solace State. An uninterrupted first-person ASCII walk through a quiet, rain-soaked Japanese street.">
+<meta name="description" content="Solace State. Carry a lamp through a dark ASCII forest and solve perspective puzzles. A doorway leads back to the rain-soaked street.">
 <title>Solace State</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='black'/%3E%3Ctext x='32' y='45' text-anchor='middle' font-size='42' fill='white'%3E%23%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css"><link rel="stylesheet" href="title.css"><script type="module" src="app.js"></script></head>
 <body><section id="title-screen" aria-label="Solace State main menu">
 <canvas id="opening-art" aria-hidden="true"></canvas><div class="title-shade" aria-hidden="true"></div>
 <div id="title-content"><span class="title-eyebrow">A DEVWILL GAME</span><h1>Solace<br><em>State</em></h1><p>Some nights learn your name.<br>This one is waiting for you.</p><button id="enter-night" disabled>Preparing the night...</button><span id="title-save">A MEMORY OF MORNING</span></div>
-<button id="title-sound" aria-pressed="false">Music / Enable</button><span class="title-footer">FIVE DOORS. ONE WAY TO MORNING.</span>
+<button id="title-sound" aria-pressed="false">Music / Enable</button><span class="title-footer">THE LANTERN WOOD</span>
 <div id="studio-mark" aria-label="devwill, a crow with devil horns"><span>devwill</span><small>SOMETHING IS STILL AWAKE.</small></div>
 <button id="skip-opening" hidden>Skip intro / Esc</button><p id="opening-caption" class="sr-only" aria-live="polite"></p>
 </section><main id="game" aria-label="Solace State, a quiet walking game">
 <canvas id="world" tabindex="0" aria-label="ASCII Japanese street. WASD walks. Drag or arrow keys look around. Escape opens the menu. On touchscreens, drag the left half to move and the right half to look; tap with two fingers for the menu."></canvas>
 <div id="loading" role="status">Preparing the street...</div>
-<div id="hud" class="glass" hidden><div id="hud-row"><span id="hud-objective">Find the Lightbreaker Sword</span><button id="slash-btn" hidden>Slash [F]</button><button id="veil-switch" hidden>Switch: ASCII Mesh [T]</button></div><div id="hud-hp-wrap" hidden><div id="hud-hp-fill"></div></div></div>
+<div id="hud" class="glass" hidden><div id="hud-row"><span id="hud-objective">Find the Colour Brush</span><button id="paint-btn" hidden>Paint [F]</button><button id="veil-switch" hidden>Switch: ASCII Mesh [T]</button></div><div id="brush-palette" hidden aria-label="Brush colours"></div><div id="hud-hp-wrap" hidden><div id="hud-hp-fill"></div></div></div>
 <div id="hud-banner" class="glass" hidden></div>
 <div class="glass fatal-error" id="fatal-error" hidden><h1>A little trouble starting.</h1><p id="fatal-message"></p><button onclick="location.reload()">Try again</button></div>
 <button id="interact" class="glass" hidden></button></main>
 <dialog id="menu" class="glass" aria-labelledby="menu-title">
-<h1 id="menu-title">Solace State</h1><p>Five doors. Five lost memories.<br>Help this street reach morning.</p><p id="journey-progress"></p><button id="journal">Read your journal</button>
-<p class="desktop-help">WASD to walk. Hold Shift to sprint. Drag or use the arrow keys to look.<br>When armed, Click or press F to slash the mesh. Escape opens this menu.</p>
-<p class="touch-help">Left thumb to walk; drag farther to sprint. Right thumb to look.<br>Tap with two fingers to open this menu.</p>
+<h1 id="menu-title">Solace State</h1><p>Carry a lamp through the Lantern Wood, or return to the street to recover its lost memories.</p><p id="journey-progress"></p><button id="journal">Read your journal</button>
+<p class="desktop-help">WASD to walk. Hold Shift to sprint. Drag or use the arrow keys to look.<br>Once you hold the Colour Brush, hold Click / F to paint; scroll or press 1-7 to change colour.<br>Escape opens this menu.</p>
+<p class="touch-help">Left thumb to walk; drag farther to sprint. Right thumb to look.<br>With the brush, tap the right side to paint and pick colours at the top.<br>Tap with two fingers to open this menu.</p>
 <button id="begin" class="primary" disabled>Preparing the street...</button>
 <button id="music-toggle" aria-pressed="false" aria-label="Toggle the original soundtrack">Music Off</button><div class="settings"><button id="sound" aria-pressed="false">Rain audio <span>Off</span></button><button id="quality" aria-label="Change ASCII density">Text detail <span>Fine</span></button></div>
 <button id="replay-opening">Replay the opening</button><button id="leave-ride" hidden>End drive and return to the street</button><button id="restart" hidden>Start a fresh walk</button>

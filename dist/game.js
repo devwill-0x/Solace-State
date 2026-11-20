@@ -1,5 +1,7 @@
-import { LINKS, REALM_IDS, restoreJourney } from './journey.js';
+import { LINKS, REALM_IDS, CHAINS, restoreJourney, fieldAllowed } from './journey.js';
 import { ARENAS, canEnterPortal, serializeQuest } from './combat.js';
+
+import { FOREST, forestAllowed, restoreForest } from './forest.js';
 
 export const START = { x: 0.1, z: 7, yaw: 0, pitch: 0 };
 
@@ -11,27 +13,44 @@ export function canWalk(x, z) {
   if ((x > -7.2 && x < -4.8 && z > -10.5 && z < -9.5) || (x > -9.2 && x < -6.8 && z > -16.2 && z < -15.2) || (x > 5.8 && x < 8.2 && z > -25.7 && z < -24.7)) return false;
   if (x > 2.65 && z > -8.8 && z < -6.3) return false;
   if (x < -2.85 && z > -34 && z < -32) return false;
+  // The parked car is solid; its passenger door is reached from the street side.
+  if (x > -2.75 && x < -1.25 && z > -11.55 && z < -8.45) return false;
   return true;
 }
 
 export function createState(saved) {
+  const forest = restoreForest(saved?.forest);
   const field = REALM_IDS.has(saved?.realm);
-  const p = saved?.player ? {
+  // A save from a place that no longer exists wakes up at the start of the street.
+  const lost = typeof saved?.realm === 'string' && saved.realm !== 'street' && !field;
+  const p = saved?.player && !lost ? {
     ...saved.player,
     z: Math.max(field ? -118 : -37, Math.min(field ? -82.1 : 10, saved.player.z)),
     x: Math.max(field ? -19 : -9.8, Math.min(field ? 19 : 9.8, saved.player.x))
   } : null;
-  const valid = p && (field ? (Math.abs(p.x) < 20 && p.z > -119 && p.z < -82) : canWalk(p.x, p.z)) && Number.isFinite(p.yaw) && Number.isFinite(p.pitch);
+  const valid = p && (saved.realm === FOREST.id ? forestAllowed(p.x, p.z, forest)
+    : field ? fieldAllowed(saved.realm, p.x, p.z) : canWalk(p.x, p.z)) && Number.isFinite(p.yaw) && Number.isFinite(p.pitch);
   return {
     player: valid ? { x: p.x, z: p.z, yaw: p.yaw, pitch: Math.max(-1.2, Math.min(0.7, p.pitch)) } : field ? { x: 0, z: -87, yaw: 0, pitch: 0 } : { ...START },
     realm: field ? saved.realm : 'street',
     ...restoreJourney(saved),
+    forest,
     started: !!saved?.started,
     paused: false,
     distance: 0,
     moving: false,
     elapsed: Number.isFinite(saved?.elapsed) ? Math.max(0, Math.min(1800, saved.elapsed)) : 0
   };
+}
+
+// Far gates: battle rooms chain north, and some calm places open onto another place.
+export function nextRealm(realm) {
+  const arena = ARENAS.find((a) => a.id === realm);
+  return arena ? arena.next : CHAINS.find((c) => c.from === realm)?.to ?? null;
+}
+export function prevRealm(realm) {
+  const arena = ARENAS.find((a) => a.id === realm);
+  return arena ? arena.prev : CHAINS.find((c) => c.to === realm)?.from ?? 'street';
 }
 
 export function walk(s, f, r, dt) {
@@ -66,7 +85,8 @@ export function walk(s, f, r, dt) {
       }
       return true;
     }
-    if (s.realm !== 'street') return Math.abs(x) < 20 && z > -119 && z < -82;
+    if (s.realm === FOREST.id) return forestAllowed(x, z, s.forest);
+    if (s.realm !== 'street') return fieldAllowed(s.realm, x, z);
     // Keep the player on the street side if a diagonal step misses the opening.
     if (startX <= 3.12 && x > 3.12 && LINKS.some((w) => Math.abs(startZ - w.z) < 1.2)) return false;
     return canWalk(x, z);
@@ -77,26 +97,21 @@ export function walk(s, f, r, dt) {
   if (allowed(p.x, p.z + dz)) { p.z += dz; moved ||= dz !== 0; }
 
   const center = LINKS.find((w) => w.id === s.realm)?.z ?? -2;
-  if (arena?.next && startZ >= -113 && p.z < -113 && Math.abs(p.x) < 1.02 && canEnterPortal(s, arena.next)) {
+  const next = nextRealm(s.realm), prev = prevRealm(s.realm);
+  if (next && startZ >= -113 && p.z < -113 && Math.abs(p.x) < 1.02 && canEnterPortal(s, next)) {
     p.z += 28;
-    s.realm = arena.next;
-  } else if (arena && startZ <= -85 && p.z > -85 && Math.abs(p.x) < 1.02) {
-    if (arena.prev === 'street') {
+    s.realm = next;
+  } else if (s.realm !== 'street' && startZ <= -85 && p.z > -85 && Math.abs(p.x) < 1.02) {
+    if (prev === 'street') {
       const x = p.x;
       p.x = 3.12 - (p.z + 85);
-      p.z = x + -16;
+      p.z = x + (arena ? arena.z : center);
       p.yaw -= Math.PI / 2;
       s.realm = 'street';
     } else {
       p.z -= 28;
-      s.realm = arena.prev;
+      s.realm = prev;
     }
-  } else if (!arena && s.realm !== 'street' && startZ <= -85 && p.z > -85 && Math.abs(p.x) < 1.02) {
-    const x = p.x;
-    p.x = 3.12 - (p.z + 85);
-    p.z = x + center;
-    p.yaw -= Math.PI / 2;
-    s.realm = 'street';
   }
 
   if (moved) s.distance += Math.hypot(dx, dz);
@@ -106,12 +121,14 @@ export function walk(s, f, r, dt) {
 export function serialize(s) {
   const puzzles = { ...s.puzzles };
   if (s.quest) puzzles._quest = serializeQuest(s.quest);
+  if (s.canvas && Object.keys(s.canvas).length) puzzles._canvas = s.canvas;
   return {
     player: { ...(s.ride ? s.ride.returnPlayer : s.player) },
     started: s.started,
     elapsed: s.elapsed,
     realm: s.realm,
     puzzles,
+    ...(s.realm === FOREST.id || s.forest.stage || s.forest.hooded ? { forest: s.forest } : {}),
     ending: s.ending
   };
 }

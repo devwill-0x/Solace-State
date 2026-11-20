@@ -1,88 +1,52 @@
 import * as THREE from './vendor/three.module.js';
-import { SWORD_POS, TETHERS } from './combat.js';
+import { BRUSH_POS, TETHERS } from './combat.js';
+import { PAINT_COLORS } from './journey.js';
 
-export function buildSwordPedestal(scene) {
+// The Colour Brush floats above a grey pedestal, its bristles cycling through the brush colours.
+export function buildBrushPedestal(scene) {
   const group = new THREE.Group();
-  group.position.set(SWORD_POS.x, 0, SWORD_POS.z);
+  group.position.set(BRUSH_POS.x, 0, BRUSH_POS.z);
 
-  const dais = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.9, 1.15, 0.28, 12),
-    new THREE.MeshLambertMaterial({ color: 0x8995ab })
-  );
+  const dais = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.15, 0.28, 12), new THREE.MeshLambertMaterial({ color: 0x9a9a9a }));
   dais.position.y = 0.14;
   group.add(dais);
-
-  const altar = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.36, 0.52, 0.72, 8),
-    new THREE.MeshLambertMaterial({ color: 0xaab8d2 })
-  );
+  const altar = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.52, 0.72, 8), new THREE.MeshLambertMaterial({ color: 0xb8b8b8 }));
   altar.position.y = 0.62;
   group.add(altar);
 
-  const swordGroup = new THREE.Group();
-  swordGroup.position.y = 1.48;
+  const brush = new THREE.Group();
+  brush.position.y = 1.55;
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.95, 10), new THREE.MeshBasicMaterial({ color: 0x5c5c5c }));
+  handle.position.y = -0.2;
+  const ferrule = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.14, 12), new THREE.MeshBasicMaterial({ color: 0xe6e6e6 }));
+  ferrule.position.y = 0.33;
+  const tipMat = new THREE.MeshBasicMaterial({ color: PAINT_COLORS[0].hex });
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.32, 12), tipMat);
+  tip.position.y = 0.55;
+  for (const m of [handle, ferrule, tip]) { m.userData.noPaint = true; brush.add(m); }
+  brush.rotation.z = 0.35;
+  group.add(brush);
 
-  const blade = new THREE.Mesh(
-    new THREE.OctahedronGeometry(0.14, 0),
-    new THREE.MeshBasicMaterial({ color: 0xdff8ff })
-  );
-  blade.scale.set(0.42, 4.8, 0.22);
-  blade.position.y = 0.42;
-  swordGroup.add(blade);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.025, 8, 32), new THREE.MeshBasicMaterial({ color: 0xf2f2f2 }));
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 1.02;
+  ring.userData.noPaint = true;
+  group.add(ring);
 
-  const guard = new THREE.Mesh(
-    new THREE.BoxGeometry(0.48, 0.07, 0.12),
-    new THREE.MeshBasicMaterial({ color: 0xffe49c })
-  );
-  guard.position.y = -0.02;
-  swordGroup.add(guard);
-
-  const hilt = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.032, 0.04, 0.28, 8),
-    new THREE.MeshBasicMaterial({ color: 0xfff3d4 })
-  );
-  hilt.position.y = -0.18;
-  swordGroup.add(hilt);
-
-  const auraRing = new THREE.Mesh(
-    new THREE.TorusGeometry(0.55, 0.025, 8, 32),
-    new THREE.MeshBasicMaterial({ color: 0x8ef2ff, transparent: true, opacity: 0.8 })
-  );
-  auraRing.rotation.x = Math.PI / 2;
-  auraRing.position.y = 1.02;
-  group.add(auraRing);
-
-  const beam = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.16, 0.34, 8.0, 12, 1, true),
-    new THREE.MeshBasicMaterial({
-      color: 0x9cf4ff,
-      transparent: true,
-      opacity: 0.22,
-      side: THREE.DoubleSide,
-      depthWrite: false
-    })
-  );
-  beam.position.y = 4.2;
-  group.add(beam);
-
-  const glow = new THREE.PointLight(0xaef6ff, 12, 7.5, 2);
+  const glow = new THREE.PointLight(0xffffff, 10, 7.5, 2);
   glow.position.y = 1.75;
   group.add(glow);
-
-  group.add(swordGroup);
   scene.add(group);
 
   return {
     group,
     update(time, collected) {
-      swordGroup.visible = !collected;
-      beam.visible = !collected;
-      auraRing.visible = !collected;
-      glow.intensity = collected ? 1.5 : 10 + Math.sin(time * 3.1) * 3;
+      brush.visible = ring.visible = !collected;
+      glow.intensity = collected ? 1.5 : 9 + Math.sin(time * 3.1) * 3;
       if (!collected) {
-        swordGroup.rotation.y = time * 1.1;
-        swordGroup.position.y = 1.48 + Math.sin(time * 2.2) * 0.09;
-        auraRing.rotation.z = time * 0.9;
+        brush.rotation.y = time * 0.9;
+        brush.position.y = 1.55 + Math.sin(time * 2.2) * 0.09;
+        tipMat.color.setHex(PAINT_COLORS[Math.floor(time / 0.8) % PAINT_COLORS.length].hex);
       }
     }
   };
@@ -127,6 +91,7 @@ export function buildTetherVisual(spec) {
     chainRings.push({ ring, mat: ringMat });
   }
 
+  group.traverse((o) => { o.userData.noPaint = true; });
   const light = new THREE.PointLight(0xff427a, 10, 6.5, 2);
   light.position.y = 1.6;
   group.add(light);
@@ -203,6 +168,7 @@ function buildEnemyVisual(spec) {
   telegraph.position.y = 0.05;
   root.add(telegraph);
 
+  root.traverse((o) => { o.userData.noPaint = true; });
   return {
     id: spec.id,
     root,
@@ -226,8 +192,11 @@ function buildEnemyVisual(spec) {
       });
 
       const flash = enemyState.hitFlash > 0;
-      bodyMat.color.setHex(flash ? 0xffffff : spec.boss ? 0xff407a : 0xc648ff);
-      ringMat.color.setHex(flash ? 0xaaf8ff : 0xff82ae);
+      // A hit splashes the enemy in the brush colour that struck it.
+      const spec = PAINT_COLORS[enemyState.paint ?? 0];
+      const splash = spec.prism ? new THREE.Color().setHSL((time * 0.6) % 1, 1, 0.5).getHex() : spec.hex;
+      bodyMat.color.setHex(flash ? splash : spec.boss ? 0xff407a : 0xc648ff);
+      ringMat.color.setHex(flash ? splash : 0xff82ae);
       const windup = Math.max(0, 1 - enemyState.attackTimer / 1.1);
       telegraphMat.opacity = 0.12 + windup * 0.55;
       telegraph.scale.setScalar(0.8 + windup * 0.45);

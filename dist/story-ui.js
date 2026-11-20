@@ -1,7 +1,15 @@
-import { WORLDS, nearby, countFragments, act, initialPuzzle, finish } from './journey.js';
-import { ARENAS, TETHERS, TETHER_GOAL, claimSword, cutTether } from './combat.js';
+import { WORLDS, nearby, countFragments, act, initialPuzzle, finish, PAINT_COLORS, PAINT_TARGETS } from './journey.js';
+import { ARENAS, TETHERS, TETHER_GOAL, claimBrush, cutTether } from './combat.js';
 
-export function createStory({ getState, pause, save, onSwordClaimed, onTetherCut }) {
+import { activateForestStation } from './forest.js';
+
+const forestPrompts = {
+  'forest-hood': 'E - Hood the lamp',
+  'forest-focus': 'E - Find the viewpoint',
+  'forest-align': 'E - Align the symbol'
+};
+
+export function createStory({ getState, pause, save, onBrushClaimed, onTetherCut, onRide }) {
   const $ = (id) => document.getElementById(id);
   const dialog = $('story');
   const prompt = $('interact');
@@ -30,11 +38,11 @@ export function createStory({ getState, pause, save, onSwordClaimed, onTetherCut
 
     if (current === 'journal') {
       $('story-title').textContent = 'The street that forgot morning';
-      $('story-text').textContent = 'You built a night behind an ASCII mesh. Find the Lightbreaker Sword in the western Tea Courtyard to tear open the veil, sever Bad Tethers across the street and Battle Portals, and unlock the Heavenly Light switch.';
-      $('story-status').textContent = `${countFragments(s)} / 5 memories  |  ${s.quest?.tethers?.length || 0} / ${TETHER_GOAL} Bad Tethers severed`;
+      $('story-text').textContent = 'You built a night out of grey characters. Find the Colour Brush in the western Tea Courtyard, wash the Bad Tethers across the street and the Battle Portals in colour, and unlock the Heavenly Light switch.';
+      $('story-status').textContent = `${countFragments(s)} / ${WORLDS.length} memories  |  ${s.quest?.tethers?.length || 0} / ${TETHER_GOAL} Bad Tethers washed`;
       for (const world of WORLDS) {
         const p = document.createElement('p');
-        p.className = 'journal-entry';
+        p.className = 'journal-entry' + (s.puzzles[world.id].solved ? ' found' : '');
         p.textContent = world.name + ' - ' + (s.puzzles[world.id].solved ? world.fragment : 'Unrecovered. Look for its named doorway on the right side of the street.');
         $('story-actions').append(p);
       }
@@ -48,10 +56,26 @@ export function createStory({ getState, pause, save, onSwordClaimed, onTetherCut
       return;
     }
 
+    if (current === 'platform-bench') {
+      $('story-title').textContent = 'The Last Platform';
+      $('story-status').textContent = 'A bench under the canopy';
+      $('story-text').textContent = 'You sit. The bench is cold, then a little less cold. The departure board has said DELAYED UNTIL MORNING for as long as anyone here remembers. Nobody on this platform is in a hurry. For once, neither are you.';
+      return;
+    }
+
+    if (current === 'platform-train') {
+      $('story-title').textContent = 'The waiting train';
+      $('story-status').textContent = s.ending ? 'The doors chime softly' : 'The doors stay open';
+      $('story-text').textContent = s.ending
+        ? 'Morning light fills the empty carriage. Every seat faces forward. You do not have to board yet. The train will wait, the way it always has.'
+        : 'The carriage is warm and empty, every seat facing the same way: forward. A handwritten note is taped inside the door. It says: When you are ready. Not before.';
+      return;
+    }
+
     if (current === 'crucible-locked') {
       $('story-title').textContent = 'Sealed doorway — The Crucible';
       $('story-status').textContent = 'Locked by Bad Tethers';
-      $('story-text').textContent = 'Crimson shadow chains bar this Battle Room portal. Explore the western Tea Courtyard across the street to claim the Lightbreaker Sword first.';
+      $('story-text').textContent = 'Crimson shadow chains bar this Battle Room portal. Explore the western Tea Courtyard across the street to find the Colour Brush first.';
       return;
     }
 
@@ -59,19 +83,19 @@ export function createStory({ getState, pause, save, onSwordClaimed, onTetherCut
       const arena = ARENAS.find((a) => a.id === s.realm);
       $('story-title').textContent = 'Progressive Portal Sealed';
       $('story-status').textContent = `${arena?.name || 'Battle Room'} incomplete`;
-      $('story-text').textContent = 'Defeat every sentinel in this Battle Room and sever both crimson Bad Tethers with your Sword ([Click] or [F]) to unseal the next Progressive Portal.';
+      $('story-text').textContent = 'Splash every sentinel in this Battle Room with paint and wash both crimson Bad Tethers in colour with your brush ([Click] or [F]) to unseal the next Progressive Portal.';
       return;
     }
 
     if (current === 'shrine') {
       $('story-title').textContent = s.ending ? 'A place to begin' : 'The last lantern';
-      $('story-status').textContent = countFragments(s) + ' / 5 memories';
+      $('story-status').textContent = countFragments(s) + ' / ' + WORLDS.length + ' memories';
       $('story-text').textContent = s.ending
         ? 'The lantern warms beneath your hand. Somewhere, a train begins moving. The street is still here. So are you. Morning arrives. You can keep exploring.'
-        : countFragments(s) < 5
+        : countFragments(s) < WORLDS.length
           ? 'Five empty sockets circle the lantern. Bring back the memories from the five named worlds.'
           : 'Every socket holds a memory. For the first time, the lantern has something to burn.';
-      if (!s.ending && countFragments(s) === 5) {
+      if (!s.ending && countFragments(s) === WORLDS.length) {
         button('Let morning in', () => { finish(s); save(); render(); });
       }
       return;
@@ -80,9 +104,20 @@ export function createStory({ getState, pause, save, onSwordClaimed, onTetherCut
     if (!w) return;
     const p = s.puzzles[w.id];
     $('story-title').textContent = w.name;
+    if (w.kind === 'paint') {
+      $('story-text').textContent = p.solved ? w.fragment : 'The altar is carved from the same grey stone as everything else. Three runes wait above it, each one waiting for a colour. Your brush is already wet.';
+      $('story-status').textContent = p.solved
+        ? 'Memory recovered - ' + countFragments(s) + ' / ' + WORLDS.length
+        : PAINT_TARGETS.map((_, i) => w.labels[i] + ': ' + (p.values[i] ? PAINT_COLORS[p.values[i] - 1].name : 'unpainted')).join('  |  ');
+      if (!p.solved) {
+        $('story-hint').hidden = false;
+        $('clue').textContent = w.clue + ' Hold the mouse button (or F / Space) to paint; scroll, press 1-6 or C to change colour.';
+      }
+      return;
+    }
     $('story-text').textContent = p.solved ? w.fragment : 'The altar seems to recognize you. Three stones wait beneath its arch. Restore their pattern to recover a memory.';
     $('story-status').textContent = p.solved
-      ? 'Memory recovered - ' + countFragments(s) + ' / 5'
+      ? 'Memory recovered - ' + countFragments(s) + ' / ' + WORLDS.length
       : w.kind === 'align'
         ? 'Prism turns: ' + p.values.join(' / ')
         : w.kind === 'lights'
@@ -101,13 +136,22 @@ export function createStory({ getState, pause, save, onSwordClaimed, onTetherCut
   const open = (id = nearby(getState())) => {
     if (!id) return;
     const s = getState();
-    if (id === 'sword') {
-      if (claimSword(s)) {
+    if (Object.hasOwn(forestPrompts,id)) {
+      const message=activateForestStation(s);
+      if(message&&s.runtime){
+        s.runtime.banner=message;
+        s.runtime.bannerTimer=4.5;
+        save();
+      }
+      return;
+    }
+    if (id === 'brush') {
+      if (claimBrush(s)) {
         if (s.runtime) {
-          s.runtime.banner = 'Lightbreaker Sword claimed! Click or press [F] to break the mesh';
+          s.runtime.banner = 'Colour Brush found! Hold Click or [F] to paint the night';
           s.runtime.bannerTimer = 4.2;
         }
-        onSwordClaimed?.();
+        onBrushClaimed?.();
         save();
       }
       return;
@@ -119,6 +163,10 @@ export function createStory({ getState, pause, save, onSwordClaimed, onTetherCut
         onTetherCut?.(res);
         save();
       }
+      return;
+    }
+    if (id === 'car') {
+      onRide?.();
       return;
     }
     if (id === 'street-return') {
@@ -156,18 +204,23 @@ export function createStory({ getState, pause, save, onSwordClaimed, onTetherCut
       const id = nearby(s);
       prompt.hidden = !id || s.paused || dialog.open;
       if (id) {
-        if (id === 'sword') prompt.textContent = 'E - Claim the Lightbreaker Sword';
-        else if (id.startsWith('tether:')) prompt.textContent = 'E / Click - Sever Bad Tether';
-        else if (id === 'crucible-locked') prompt.textContent = 'E - Sealed Portal (Find Sword in West Courtyard)';
+        if (Object.hasOwn(forestPrompts,id)) prompt.textContent = forestPrompts[id];
+        else if (id === 'brush') prompt.textContent = 'E - Take the Colour Brush';
+        else if (id.startsWith('tether:')) prompt.textContent = 'E / Paint - Wash the Bad Tether in colour';
+        else if (id === 'crucible-locked') prompt.textContent = 'E - Sealed Portal (Find the Brush in the West Courtyard)';
         else if (id === 'arena-next-locked') prompt.textContent = 'E - Progressive Portal Sealed (Clear Wave & Tethers)';
         else if (id === 'street-return') prompt.textContent = 'E - Return to the Street';
         else if (id === 'shrine') prompt.textContent = 'E - Touch the shrine';
         else if (id === 'mirror') prompt.textContent = 'E - Gaze into the mirror';
+        else if (id === 'car') prompt.textContent = 'E - Ride along in the waiting car';
+        else if (id === 'platform-bench') prompt.textContent = 'E - Sit on the bench';
+        else if (id === 'platform-train') prompt.textContent = 'E - Look inside the open train';
+        else if (id === 'paint') prompt.textContent = 'E - Read the garden altar';
         else prompt.textContent = 'E - Read the memory altar';
       }
       $('journey-progress').textContent = s.ending
         ? 'Morning has returned.'
-        : `${countFragments(s)} / 5 memories  |  ${s.quest?.tethers?.length || 0} / ${TETHER_GOAL} Bad Tethers`;
+        : `${countFragments(s)} / ${WORLDS.length} memories  |  ${s.quest?.tethers?.length || 0} / ${TETHER_GOAL} Bad Tethers`;
     }
   };
 }

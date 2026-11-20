@@ -1,4 +1,5 @@
-export const SWORD_POS = { x: -5.2, z: -13.0 };
+// The Colour Brush rests on a pedestal in the western Tea Courtyard.
+export const BRUSH_POS = { x: -5.2, z: -13.0 };
 export const TETHER_GOAL = 6;
 
 export const TETHERS = [
@@ -77,19 +78,20 @@ export function createQuest(saved) {
     arena2: clearedRaw.arena2 === true,
     arena3: clearedRaw.arena3 === true
   };
-  const sword = saved?.sword === true;
+  // Saves from before the brush stored it as a sword.
+  const brush = saved?.brush === true || saved?.sword === true;
   let portalTier = Number.isInteger(saved?.portalTier) ? Math.max(0, Math.min(3, saved.portalTier)) : 0;
-  if (sword && portalTier < 1) portalTier = 1;
+  if (brush && portalTier < 1) portalTier = 1;
   if (battleCleared.arena1 && portalTier < 2) portalTier = 2;
   if (battleCleared.arena2 && portalTier < 3) portalTier = 3;
   const lightUnlocked = saved?.lightUnlocked === true || tethers.length >= TETHER_GOAL;
   const lightMode = lightUnlocked && saved?.lightMode === true;
-  return { sword, tethers, portalTier, battleCleared, lightUnlocked, lightMode };
+  return { brush, tethers, portalTier, battleCleared, lightUnlocked, lightMode };
 }
 
 export function serializeQuest(q) {
   return {
-    sword: !!q?.sword,
+    brush: !!q?.brush,
     tethers: [...(q?.tethers || [])],
     portalTier: q?.portalTier || 0,
     battleCleared: {
@@ -102,9 +104,9 @@ export function serializeQuest(q) {
   };
 }
 
-export function claimSword(state) {
-  if (!state?.quest || state.quest.sword) return false;
-  state.quest.sword = true;
+export function claimBrush(state) {
+  if (!state?.quest || state.quest.brush) return false;
+  state.quest.brush = true;
   if (state.quest.portalTier < 1) state.quest.portalTier = 1;
   return true;
 }
@@ -149,7 +151,7 @@ export function checkArenaProgression(state) {
 export function canEnterPortal(state, targetRealm) {
   const arena = ARENAS.find((a) => a.id === targetRealm);
   if (!arena) return true;
-  if (!state?.quest?.sword) return false;
+  if (!state?.quest?.brush) return false;
   return (state.quest.portalTier || 0) >= arena.tierRequired;
 }
 
@@ -161,7 +163,6 @@ export function createRuntimeCombat() {
     hp: 100,
     maxHp: 100,
     hurtFlash: 0,
-    slashFlash: 0,
     banner: '',
     bannerTimer: 0,
     activeRealm: null,
@@ -191,15 +192,15 @@ export function syncArenaCombat(state, runtime) {
   }));
 }
 
-export function performSlash(state, runtime, time = 0) {
-  if (!state?.started || state.paused || state.ride || !state.quest?.sword) return null;
+// A brush stroke washes nearby tethers and enemies in colour. Self-limited by its own cooldown.
+export function performStroke(state, runtime, time = 0) {
+  if (!state?.started || state.paused || state.ride || !state.quest?.brush) return null;
   if (runtime.swingCooldown > 0) return null;
   syncArenaCombat(state, runtime);
 
   runtime.swingTimer = 0.36;
   runtime.swingCooldown = 0.34;
   runtime.swingDir = -runtime.swingDir;
-  runtime.slashFlash = 1.0;
 
   const p = state.player;
   const fx = -Math.sin(p.yaw);
@@ -263,16 +264,16 @@ export function performSlash(state, runtime, time = 0) {
   }
 
   if (result.switchJustUnlocked) {
-    runtime.banner = 'Mesh broken! Heavenly Switch unlocked [T]';
+    runtime.banner = 'Colour floods the street! Heavenly Switch unlocked [T]';
     runtime.bannerTimer = 4.2;
   } else if (result.cutTethers.length) {
     const remaining = Math.max(0, TETHER_GOAL - state.quest.tethers.length);
     runtime.banner = remaining > 0
-      ? `Bad Tether severed (${state.quest.tethers.length}/${TETHER_GOAL})`
-      : `Extra Tether severed (${state.quest.tethers.length}/${TETHERS.length})`;
+      ? `Bad Tether washed in colour (${state.quest.tethers.length}/${TETHER_GOAL})`
+      : `Extra Tether washed in colour (${state.quest.tethers.length}/${TETHERS.length})`;
     runtime.bannerTimer = 2.6;
   } else if (result.tierUnlocked) {
-    runtime.banner = arena.next ? 'Wave cleared! Sever tethers & advance north' : 'The Veil Warden falls! Sanctum purified';
+    runtime.banner = arena.next ? 'Wave cleared! Paint the tethers & advance north' : 'The Veil Warden falls! Sanctum purified';
     runtime.bannerTimer = 3.5;
   }
 
@@ -286,7 +287,6 @@ export function updateCombat(state, runtime, dt, time) {
   if (runtime.swingTimer > 0) runtime.swingTimer = Math.max(0, runtime.swingTimer - dt);
   if (runtime.swingCooldown > 0) runtime.swingCooldown = Math.max(0, runtime.swingCooldown - dt);
   if (runtime.hurtFlash > 0) runtime.hurtFlash = Math.max(0, runtime.hurtFlash - dt * 2.2);
-  if (runtime.slashFlash > 0) runtime.slashFlash = Math.max(0, runtime.slashFlash - dt * 1.9);
   if (runtime.bannerTimer > 0) runtime.bannerTimer = Math.max(0, runtime.bannerTimer - dt);
 
   if (!state.started || state.paused || state.ride) return;

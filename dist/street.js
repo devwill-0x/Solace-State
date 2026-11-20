@@ -6,9 +6,15 @@ import {buildNeighborhood} from './neighborhood.js';
 import {PassengerRide,parkedCar} from './ride.js';
 import {batchStatic} from './batch.js';
 import {buildBlossom} from './blossom.js';
+import {FOREST} from './forest.js';
+import {buildLanternWood} from './lantern-wood.js';
+import {buildPaintGarden} from './paint-world.js';
+import {buildPlatform} from './platform.js';
 import {ARENAS,TETHERS} from './combat.js';
-import {buildSwordPedestal,buildTetherVisual,buildBattleArena} from './battle-worlds.js';
-// The scene is never shown as pixels unless broken open by the Sword or Light Switch.
+import {buildBrushPedestal,buildTetherVisual,buildBattleArena} from './battle-worlds.js';
+import {createPaintLayer} from './paint-layer.js';
+import {prismTime} from './prism.js';
+// The scene is only ever shown as ASCII, except through the Heavenly Light switch.
 import * as THREE from './vendor/three.module.js';
 const rnd=(n)=>{const v=Math.sin(n*127.13+37.7)*43758.5453;return v-Math.floor(v);};
 function texture(w,h,paint){const c=document.createElement('canvas');c.width=w;c.height=h;paint(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;}
@@ -23,7 +29,7 @@ export class Street {
     this.moon=new THREE.DirectionalLight(0xededed,1.1);this.moon.position.set(-3,14,9);this.scene.add(this.moon);
     this.heavenSun=new THREE.DirectionalLight(0xffe6b3,0);this.heavenSun.position.set(14,26,-55);this.scene.add(this.heavenSun);
     this.wallTexture=texture(128,128,(c,w,h)=>{c.fillStyle='#b7b7b7';c.fillRect(0,0,w,h);for(let i=0;i<3500;i++){const v=90+rnd(i)*125;c.fillStyle=`rgb(${v},${v},${v})`;c.fillRect(rnd(i+9)*w,rnd(i+81)*h,1,1);}for(let y=0;y<h;y+=32){c.fillStyle='#888';c.fillRect(0,y,w,1);}});
-    this.buildGround();for(let i=0;i<5;i++){if(i!==2)this.buildHouse(-1,i);if(i!==3)this.buildHouse(1,i);}this.buildPoles();this.buildDetails();this.buildMirrors();this.playerReflection=createGlassFigureModel();this.scene.add(this.playerReflection.group);this.playerReflection.group.visible=false;this.buildShrine();buildNeighborhood(this);this.flush();this.buildRain();this.buildHeavenDecor();this.buildMeadow();parkedCar(this.scene);this.rideScene=new PassengerRide();batchStatic(this.rideScene.scene);this.frustum=new THREE.Frustum();this.viewProjection=new THREE.Matrix4();
+    this.buildGround();for(let i=0;i<5;i++){if(i!==2)this.buildHouse(-1,i);if(i!==3)this.buildHouse(1,i);}this.buildPoles();this.buildDetails();this.buildMirrors();this.playerReflection=createGlassFigureModel();this.scene.add(this.playerReflection.group);this.playerReflection.group.visible=false;this.buildShrine();buildNeighborhood(this);this.flush();this.buildRain();this.buildHeavenDecor();this.buildPortals();parkedCar(this.scene);this.rideScene=new PassengerRide();batchStatic(this.rideScene.scene);this.frustum=new THREE.Frustum();this.viewProjection=new THREE.Matrix4();
   }
   box(x,y,z,w,h,d,color=0x777777){this.boxes.push({p:[x,y,z],s:[w,h,d],color});}
   pipe(a,b,r=.04,color=0x777777){this.pipes.push({a,b,r,color});}
@@ -210,37 +216,32 @@ export class Street {
     this.ambient.intensity=0.56+h*0.42;
     if(this.heavenGroup)this.heavenGroup.visible=h>0.03;
   }
-  buildMeadow(){
-    this.meadow=new THREE.Scene();this.meadow.background=new THREE.Color(0x58baff);this.meadow.fog=new THREE.Fog(0x83ceff,45,100);
-    this.meadow.add(new THREE.HemisphereLight(0xffffff,0x63952a,2.4));
-    const sun=new THREE.DirectionalLight(0xfff0c5,2);sun.position.set(-12,25,-95);this.meadow.add(sun);
-    const ground=new THREE.Mesh(new THREE.PlaneGeometry(220,220),new THREE.MeshLambertMaterial({color:0x56ae32}));ground.rotation.x=-Math.PI/2;ground.position.z=-110;this.meadow.add(ground);
-    const add=(geo,color,x,y,z)=>{const m=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color}));m.position.set(x,y,z);this.meadow.add(m);return m;};
-    add(new THREE.CylinderGeometry(.48,.85,7,10),0x865530,5,3.5,-108);
-    for(let i=0;i<18;i++){const a=i*2.4;add(new THREE.SphereGeometry(2.2,12,9),[0x359c42,0x64b943,0x258449][i%3],5+Math.cos(a)*2.5,6.5+rnd(i)*3,-108+Math.sin(a)*2.5);}
-    for(let i=0;i<650;i++){const x=(rnd(i+200)-.5)*65,z=-87-rnd(i+900)*65;if(Math.abs(x)<2&&z>-95)continue;const y=.18+rnd(i)*.4;add(new THREE.CylinderGeometry(.025,.025,1,4),0x328839,x,y/2,z).scale.y=y;const color=[0xff63ac,0xffdf48,0x9965ff,0xffffff,0xff895b][i%5];for(let k=0;k<5;k++){const a=k*Math.PI*2/5;add(new THREE.SphereGeometry(.095,5,4),color,x+Math.cos(a)*.1,y,z+Math.sin(a)*.1);}add(new THREE.SphereGeometry(.07,5,4),0xffd647,x,y+.03,z);}
-    for(let i=0;i<5;i++)add(new THREE.SphereGeometry(3,10,7),0xffffff,(rnd(i+40)-.5)*90,18+rnd(i)*10,-110-rnd(i+60)*70).scale.set(2,.45,1);
-    this.portalTarget=new THREE.WebGLRenderTarget(256,256);this.portalCamera=new THREE.PerspectiveCamera();this.portalCamera.rotation.order='YXZ';
-    this.portalMaterial=new THREE.ShaderMaterial({uniforms:{view:{value:this.portalTarget.texture},size:{value:new THREE.Vector2(256,256)}},vertexShader:'void main(){gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',fragmentShader:'uniform sampler2D view;uniform vec2 size;void main(){gl_FragColor=texture2D(view,gl_FragCoord.xy/size);\n#include <colorspace_fragment>\n}',side:THREE.FrontSide});
+  // Each portal shows a live view of the place behind it, rendered into its own target.
+  makePortalMaterial(){
+    const target=new THREE.WebGLRenderTarget(256,256);
+    const material=new THREE.ShaderMaterial({uniforms:{view:{value:target.texture},size:{value:new THREE.Vector2(256,256)}},vertexShader:'void main(){gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',fragmentShader:'uniform sampler2D view;uniform vec2 size;void main(){gl_FragColor=texture2D(view,gl_FragCoord.xy/size);\n#include <colorspace_fragment>\n}',side:THREE.FrontSide});
+    return {target,material};
+  }
+  buildPortals(){
+    this.portalCamera=new THREE.PerspectiveCamera();this.portalCamera.rotation.order='YXZ';
     const portal=(scene,x,z,angle,color)=>{const group=new THREE.Group();group.position.set(x,1.9,z);group.rotation.y=angle;scene.add(group);
       for(let i=0;i<3;i++){const rim=new THREE.Mesh(new THREE.TorusGeometry(1.05+i*.055,i===0?.075:.035,10,64),new THREE.MeshBasicMaterial({color:i===0?0xe9fcff:color,transparent:i>0,opacity:i===0?1:.55}));rim.scale.y=1.7;group.add(rim);}
-      const face=new THREE.Mesh(new THREE.CircleGeometry(1.04,64),this.portalMaterial);face.scale.y=1.7;face.position.z=0;group.add(face);group.userData.face=face;
+      const face=new THREE.Mesh(new THREE.CircleGeometry(1.04,64));face.scale.y=1.7;face.position.z=0;group.add(face);group.userData.face=face;
       const light=new THREE.PointLight(color,12,5);light.position.z=.3;group.add(light);return group;};
-    this.blossom=buildBlossom();
-    this.streetPortal=portal(this.scene,3.12,-2,-Math.PI/2,0x00cfff);this.fieldPortal=portal(this.meadow,0,-85,Math.PI,0xff922f);
-    this.blossomTarget=new THREE.WebGLRenderTarget(256,256);this.blossomMaterial=this.portalMaterial.clone();this.blossomMaterial.uniforms.view.value=this.blossomTarget.texture;
+    this.blossom=buildBlossom();batchStatic(this.blossom);this.blossom.scale.z=.6;this.blossom.position.z=-34;
+    const bl=this.makePortalMaterial();
     this.blossomEntry=portal(this.scene,3.12,-12,-Math.PI/2,0xff73c5);this.blossomExit=portal(this.blossom,0,-85,Math.PI,0xff73c5);
-    this.blossomEntry.userData.face.material=this.blossomMaterial;this.blossomExit.userData.face.material=this.blossomMaterial;
-    batchStatic(this.meadow);batchStatic(this.blossom);for(const field of [this.meadow,this.blossom]){field.scale.z=.6;field.position.z=-34;}
-    this.portalPairs=[{realm:'meadow',z:-2,scene:this.meadow,entry:this.streetPortal,exit:this.fieldPortal,target:this.portalTarget},{realm:'blossom',z:-12,scene:this.blossom,entry:this.blossomEntry,exit:this.blossomExit,target:this.blossomTarget}];
+    this.blossomEntry.userData.face.material=this.blossomExit.userData.face.material=bl.material;
+    this.portalPairs=[{realm:'blossom',z:-12,scene:this.blossom,entry:this.blossomEntry,exit:this.blossomExit,target:bl.target}];
     this.memoryStones=WORLDS.map((w,i)=>{const stone=new THREE.Mesh(new THREE.OctahedronGeometry(.24),new THREE.MeshBasicMaterial({color:0x424b60}));stone.position.set((i-2)*.65,1.65,-35.7);this.scene.add(stone);const socket=new THREE.Mesh(new THREE.TorusGeometry(.32,.05,6,24),new THREE.MeshLambertMaterial({color:0xa6abb7}));socket.position.copy(stone.position);this.scene.add(socket);return stone;});
-    for(const w of WORLDS){const world=buildDream(w),target=new THREE.WebGLRenderTarget(256,256),material=this.portalMaterial.clone();material.uniforms.view.value=target.texture;
+    this.forest=buildLanternWood();
+    for(const w of [...WORLDS,FOREST]){const world=w===FOREST?this.forest:w.kind==='paint'?buildPaintGarden(w):buildDream(w),{target,material}=this.makePortalMaterial();if(w.kind==='paint')this.paintScene=world;
       const entry=portal(this.scene,3.12,w.z,-Math.PI/2,w.color),exit=portal(world,0,-85,Math.PI,w.color);entry.userData.face.material=exit.userData.face.material=material;
       const name=texture(512,96,(c,width,height)=>{c.fillStyle='#111522';c.fillRect(0,0,width,height);c.strokeStyle='#c9d7e8';c.strokeRect(4,4,width-8,height-8);c.fillStyle='#eef3ff';c.font='28px monospace';c.textAlign='center';c.fillText(w.name.toUpperCase(),width/2,59);});this.plane(3.18,4.1,w.z,3,.55,name,-Math.PI/2,true);
       this.portalPairs.push({realm:w.id,z:w.z,scene:world,entry,exit,target});
     }
-    // Sword pedestal & street Bad Tethers
-    this.swordPedestal=buildSwordPedestal(this.scene);
+    // Brush pedestal & street Bad Tethers
+    this.brushPedestal=buildBrushPedestal(this.scene);
     this.streetTethers=TETHERS.filter(t=>t.realm==='street').map(t=>{const vis=buildTetherVisual(t);this.scene.add(vis.group);return vis;});
 
     // Progressive Battle Rooms: street(-16) <-> arena1 <-> arena2 <-> arena3
@@ -249,7 +250,7 @@ export class Street {
       const built=buildBattleArena(a,(sc,x,z,ang,col)=>portal(sc,x,z,ang,col));
       this.arenaScenes[a.id]={spec:a,...built};
     }
-    const a1Target=new THREE.WebGLRenderTarget(256,256),a1Mat=this.portalMaterial.clone();a1Mat.uniforms.view.value=a1Target.texture;
+    const {target:a1Target,material:a1Mat}=this.makePortalMaterial();
     this.crucibleEntry=portal(this.scene,3.12,-16,-Math.PI/2,0x7df0ff);
     this.crucibleEntry.userData.face.material=this.arenaScenes.arena1.exitPortal.userData.face.material=a1Mat;
     this.crucibleSeal=new THREE.Group();this.crucibleSeal.position.set(3.02,1.9,-16);this.crucibleSeal.rotation.y=-Math.PI/2;
@@ -258,26 +259,42 @@ export class Street {
     const cname=texture(512,96,(c,width,height)=>{c.fillStyle='#181020';c.fillRect(0,0,width,height);c.strokeStyle='#ff8eb3';c.strokeRect(4,4,width-8,height-8);c.fillStyle='#e6fbff';c.font='28px monospace';c.textAlign='center';c.fillText('THE CRUCIBLE - BATTLE ROOM',width/2,59);});
     this.plane(3.18,4.1,-16,3,.55,cname,-Math.PI/2,true);
     this.portalPairs.push({realm:'arena1',z:-16,scene:this.arenaScenes.arena1.scene,entry:this.crucibleEntry,exit:this.arenaScenes.arena1.exitPortal,target:a1Target});
-    // Wire progressive north portal materials
-    const wireChain=(fromId,toId,col)=>{
-      const from=this.arenaScenes[fromId],to=this.arenaScenes[toId];
-      const target=new THREE.WebGLRenderTarget(256,256),mat=this.portalMaterial.clone();mat.uniforms.view.value=target.texture;
-      from.nextPortal.userData.face.material=to.exitPortal.userData.face.material=mat;
-      return {fromId,toId,fromScene:from.scene,toScene:to.scene,entry:from.nextPortal,exit:to.exitPortal,target};
-    };
-    this.arenaLinks=[wireChain('arena1','arena2',0xd088ff),wireChain('arena2','arena3',0xffd37d)];
+    // Far gates: battle rooms chain north, and the blossom valley opens onto the last platform.
+    const chain=(fromId,toId,fromScene,toScene,entry,exit,open)=>{const {target,material}=this.makePortalMaterial();entry.userData.face.material=exit.userData.face.material=material;return {fromId,toId,fromScene,toScene,entry,exit,target,open};};
+    const A=this.arenaScenes;
+    this.platform=buildPlatform();
+    // The blossom scene is squashed along z (scale .6, offset -34); this local z lands the gate at world z -113.
+    const blossomGate=portal(this.blossom,0,(-113+34)/.6,0,0xf2f2f2),platformExit=portal(this.platform,0,-85,Math.PI,0xff73c5);
+    this.chainLinks=[
+      chain('arena1','arena2',A.arena1.scene,A.arena2.scene,A.arena1.nextPortal,A.arena2.exitPortal,q=>(q?.portalTier||0)>=2),
+      chain('arena2','arena3',A.arena2.scene,A.arena3.scene,A.arena2.nextPortal,A.arena3.exitPortal,q=>(q?.portalTier||0)>=3),
+      chain('blossom','platform',this.blossom,this.platform,blossomGate,platformExit,()=>true)
+    ];
+    this.extraScenes={platform:this.platform};
   }
+  // Paint is saved per scene; places drawn inside the street's scene use the street's canvas.
+  canvasKey(realm){return this.sceneFor(realm)===this.scene?'street':realm;}
+  sceneFor(realm){return this.portalPairs.find(pair=>pair.realm===realm)?.scene??this.arenaScenes?.[realm]?.scene??this.extraScenes[realm]??this.scene;}
+  // One paint layer per scene, built the first time the brush touches it.
+  layerFor(realm){
+    const scene=this.sceneFor(realm);
+    scene.userData.paintLayer??=createPaintLayer(scene);
+    return scene.userData.paintLayer;
+  }
+  // What the centre of the view touches (uses the camera from the last rendered frame).
+  paintPick(realm){return realm==='paint'?this.paintScene?.userData.paint.pick(this.camera)??null:this.layerFor(realm).pick(this.camera);}
   resize(w,h,aspect){
     const rw=Math.max(120,Math.min(1280,Math.round(w))),rh=Math.max(80,Math.min(800,Math.round(h)));
     this.renderer.setSize(rw,rh,false);
     const pw=Math.min(480,rw),ph=Math.max(1,Math.round(pw*rh/rw));
     for(const mirror of this.mapMirrors)mirror.resize(rw,rh);
     for(const pair of this.portalPairs){pair.target.setSize(pw,ph);pair.entry.userData.face.material.uniforms.size.value.set(rw,rh);}
-    for(const link of (this.arenaLinks||[])){link.target.setSize(pw,ph);link.entry.userData.face.material.uniforms.size.value.set(rw,rh);}
+    for(const link of this.chainLinks){link.target.setSize(pw,ph);link.entry.userData.face.material.uniforms.size.value.set(rw,rh);}
     this.camera.aspect=aspect;this.camera.updateProjectionMatrix();
   }
 
   render(state,time,dt,reduced=false,forceHeaven=null){
+    prismTime.value=time;
     if(state.ride)return this.rideScene.render(this.renderer,this.camera,state,reduced);
     const cutFrac=Math.min(1,(state.quest?.tethers?.length||0)/6);
     const targetHeaven=forceHeaven!==null?forceHeaven:(state.quest?.lightMode?1:0);
@@ -298,9 +315,9 @@ export class Street {
     this.setHeaven(heaven);
 
     this.memoryStones.forEach((stone,i)=>{stone.material.color.setHex(state.puzzles?.[WORLDS[i].id]?.solved?WORLDS[i].color:0x424b60);if(!reduced)stone.rotation.y=time*.3;});
-    this.swordPedestal?.update(time,!!state.quest?.sword);
+    this.brushPedestal?.update(time,!!state.quest?.brush);
     for(const tv of (this.streetTethers||[]))tv.update(time,!!state.quest?.tethers?.includes(tv.id));
-    this.crucibleSeal.visible=!state.quest?.sword;
+    this.crucibleSeal.visible=!state.quest?.brush;
 
     const p=state.player,bob=state.moving&&!reduced?Math.sin(state.distance*7)*.018:0;
     this.camera.position.set(p.x,1.64+bob,p.z);this.camera.rotation.set(p.pitch,p.yaw,0);
@@ -321,12 +338,14 @@ export class Street {
     this.camera.updateMatrixWorld();this.viewProjection.multiplyMatrices(this.camera.projectionMatrix,this.camera.matrixWorldInverse);this.frustum.setFromProjectionMatrix(this.viewProjection);
     for(const pair of this.portalPairs)pair.scene.userData.update?.(time,reduced,state.puzzles?.[pair.realm],state.quest,state.runtime,heaven);
     for(const key of ['arena2','arena3'])this.arenaScenes?.[key]?.scene.userData.update?.(time,reduced,null,state.quest,state.runtime,heaven);
+    if(state.realm==='street'||state.realm===FOREST.id)this.forest.userData.updateForest(state,time,reduced);
+    if(state.realm==='platform'||state.realm==='blossom')this.platform.userData.update?.(time,reduced);
     const remote=this.portalCamera;
     for(const pair of this.portalPairs){pair.entry.userData.face.visible=false;pair.exit.userData.face.visible=false;}
-    for(const link of (this.arenaLinks||[])){link.entry.userData.face.visible=false;link.exit.userData.face.visible=false;}
+    for(const link of this.chainLinks){link.entry.userData.face.visible=false;link.exit.userData.face.visible=false;}
 
     for(const pair of this.portalPairs){
-      if(pair.realm==='arena1'&&!state.quest?.sword)continue;
+      if(pair.realm==='arena1'&&!state.quest?.brush)continue;
       if(state.realm!=='street'&&state.realm!==pair.realm)continue;
       const active=state.realm==='street'?pair.entry:pair.exit;
       active.updateWorldMatrix(true,true);
@@ -338,9 +357,8 @@ export class Street {
       this.renderer.clippingPlanes=[state.realm!=='street'?new THREE.Plane(new THREE.Vector3(-1,0,0),3.12):new THREE.Plane(new THREE.Vector3(0,0,-1),-85)];
       this.renderer.setRenderTarget(pair.target);this.renderer.render(state.realm!=='street'?this.scene:pair.scene,remote);
     }
-    for(const link of (this.arenaLinks||[])){
-      const req=link.toId==='arena2'?2:3;
-      if((state.quest?.portalTier||0)<req)continue;
+    for(const link of this.chainLinks){
+      if(!link.open(state.quest))continue;
       if(state.realm!==link.fromId&&state.realm!==link.toId)continue;
       const forward=state.realm===link.fromId;
       const active=forward?link.entry:link.exit;
@@ -359,13 +377,11 @@ export class Street {
 
     this.renderer.setRenderTarget(null);this.renderer.clippingPlanes=[];
     for(const pair of this.portalPairs){
-      const open=pair.realm!=='arena1'||!!state.quest?.sword;
+      const open=pair.realm!=='arena1'||!!state.quest?.brush;
       pair.entry.userData.face.visible=open;pair.exit.userData.face.visible=true;
     }
-    for(const link of (this.arenaLinks||[])){
-      const req=link.toId==='arena2'?2:3;
-      const open=(state.quest?.portalTier||0)>=req;
-      link.entry.userData.face.visible=open;link.exit.userData.face.visible=true;
+    for(const link of this.chainLinks){
+      link.entry.userData.face.visible=link.open(state.quest);link.exit.userData.face.visible=true;
     }
     if(state.realm==='street'){
       for(const mirror of this.mapMirrors)mirror.face.visible=false;
@@ -374,7 +390,9 @@ export class Street {
       figure.group.visible=false;for(const mirror of this.mapMirrors)mirror.face.visible=true;
       this.renderer.setRenderTarget(null);this.renderer.clippingPlanes=[];
     }
-    this.renderer.render(this.portalPairs.find(pair=>pair.realm===state.realm)?.scene??this.arenaScenes?.[state.realm]?.scene??this.scene,this.camera);
+    const place=this.canvasKey(state.realm);
+    if(state.realm!=='paint'&&state.canvas?.[place])this.layerFor(state.realm).sync(state.canvas[place]);
+    this.renderer.render(this.sceneFor(state.realm),this.camera);
     return this.renderer.domElement;
   }
 }

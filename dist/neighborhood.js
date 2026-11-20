@@ -17,7 +17,7 @@ export function buildNeighborhood(street){
  // Warm pools of light and low lanterns make each junction readable.
  for(const [x,z] of [[-3.6,-9],[-3.6,-17],[3.6,-18],[3.6,-26]]){box(x,.65,z,.22,1.3,.22,0x858585);box(x,1.4,z,.48,.45,.48,0xdddddd);box(x,1.7,z,.65,.13,.65,0x777777);street.glow(x,z,3,4,.2);}
  // Portal entrances feel like doorways belonging to the street.
- for(const [z,c] of [[-2,0x7ba6ac],[-12,0xaa859b]]){box(3.2,.035,z,1.1,.05,2.6,c);for(const dz of [-1.35,1.35])box(3.65,1.9,z+dz,.22,3.8,.2,0x999999);box(3.65,3.85,z,.7,.22,3.1,0xbcbcbc);for(let i=0;i<4;i++)box(1.3+i*.5,.045,z,.25,.02,1.4,c);}
+ for(const [z,c] of [[-2,0xa8a8a8],[-12,0xaa859b]]){box(3.2,.035,z,1.1,.05,2.6,c);for(const dz of [-1.35,1.35])box(3.65,1.9,z+dz,.22,3.8,.2,0x999999);box(3.65,3.85,z,.7,.22,3.1,0xbcbcbc);for(let i=0;i<4;i++)box(1.3+i*.5,.045,z,.25,.02,1.4,c);}
  // Parking bay and entry paving create recognizable stopping points.
  for(const x of [-2.85,-1.15])box(x,.03,-10,.06,.025,3.7,0xbcbcbc);box(-2,.03,-8.2,1.7,.025,.06,0xbcbcbc);
  for(let z=4;z<9;z+=.7)box(0,.035,z,5.8,.025,.08,0x969696);

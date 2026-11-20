@@ -43,7 +43,8 @@ export class NightMusic{
  }
  schedule(){if(!this.ctx||!this.enabled||document.hidden)return;const now=this.ctx.currentTime;if(this.next<now-.5)this.next=now+.02;while(this.next<now+.2){this.beat(this.next,this.step++);this.next+=EIGHTH;}}
  shock(){if(!this.ctx||!this.enabled)return;const at=this.ctx.currentTime;this.releaseAt=at;if(this.buildAt===null)this.buildAt=at-5.2;else this.buildAt=Math.min(this.buildAt,at-5.2);this.kick(at,.9);this.cymbal(at,.9,true);this.guitar(110,at,1.4,.85);this.tone(880,at,.16,.055,'sawtooth');}
- slash(hit=false){if(!this.ctx||!this.enabled)return;const at=this.ctx.currentTime;this.tone(hit?740:523.25,at,.16,.09,'triangle');if(hit)this.tone(1046.5,at+.03,.24,.08,'sine');}
  tetherCut(){if(!this.ctx||!this.enabled)return;const at=this.ctx.currentTime;[523.25,659.25,783.99,1046.5].forEach((hz,i)=>this.tone(hz,at+i*.045,.55,.1,'sine'));}
+ // A soft bristle swish; each brush colour has its own pentatonic note.
+ paint(color=0,bloom=false){if(!this.ctx||!this.enabled)return;const at=this.ctx.currentTime;this.hiss(at,.11,.05,2600);this.tone([392,440,523.25,587.33,659.25,783.99][color%6],at,.35,bloom?.07:.035,'sine');if(bloom)[523.25,659.25,783.99,1046.5,1318.5].forEach((hz,i)=>this.bell(hz,at+.12+i*.11,.05));}
  switchLight(on){if(!this.ctx||!this.enabled)return;const at=this.ctx.currentTime;(on?[440,554.37,659.25,880]:[440,329.63,220]).forEach((hz,i)=>this.tone(hz,at+i*.06,.7,.09,'triangle'));}
 }
