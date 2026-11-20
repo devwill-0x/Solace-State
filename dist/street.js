@@ -221,21 +221,21 @@ export class Street {
     for(let i=0;i<650;i++){const x=(rnd(i+200)-.5)*65,z=-87-rnd(i+900)*65;if(Math.abs(x)<2&&z>-95)continue;const y=.18+rnd(i)*.4;add(new THREE.CylinderGeometry(.025,.025,1,4),0x328839,x,y/2,z).scale.y=y;const color=[0xff63ac,0xffdf48,0x9965ff,0xffffff,0xff895b][i%5];for(let k=0;k<5;k++){const a=k*Math.PI*2/5;add(new THREE.SphereGeometry(.095,5,4),color,x+Math.cos(a)*.1,y,z+Math.sin(a)*.1);}add(new THREE.SphereGeometry(.07,5,4),0xffd647,x,y+.03,z);}
     for(let i=0;i<5;i++)add(new THREE.SphereGeometry(3,10,7),0xffffff,(rnd(i+40)-.5)*90,18+rnd(i)*10,-110-rnd(i+60)*70).scale.set(2,.45,1);
     this.portalTarget=new THREE.WebGLRenderTarget(256,256);this.portalCamera=new THREE.PerspectiveCamera();this.portalCamera.rotation.order='YXZ';
-    this.portalMaterial=new THREE.ShaderMaterial({uniforms:{view:{value:this.portalTarget.texture},size:{value:new THREE.Vector2(256,256)}},vertexShader:'void main(){gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',fragmentShader:'uniform sampler2D view;uniform vec2 size;void main(){gl_FragColor=texture2D(view,gl_FragCoord.xy/size);\n#include <colorspace_fragment>\n}',side:THREE.DoubleSide});
+    this.portalMaterial=new THREE.ShaderMaterial({uniforms:{view:{value:this.portalTarget.texture},size:{value:new THREE.Vector2(256,256)}},vertexShader:'void main(){gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',fragmentShader:'uniform sampler2D view;uniform vec2 size;void main(){gl_FragColor=texture2D(view,gl_FragCoord.xy/size);\n#include <colorspace_fragment>\n}',side:THREE.FrontSide});
     const portal=(scene,x,z,angle,color)=>{const group=new THREE.Group();group.position.set(x,1.9,z);group.rotation.y=angle;scene.add(group);
       for(let i=0;i<3;i++){const rim=new THREE.Mesh(new THREE.TorusGeometry(1.05+i*.055,i===0?.075:.035,10,64),new THREE.MeshBasicMaterial({color:i===0?0xe9fcff:color,transparent:i>0,opacity:i===0?1:.55}));rim.scale.y=1.7;group.add(rim);}
       const face=new THREE.Mesh(new THREE.CircleGeometry(1.04,64),this.portalMaterial);face.scale.y=1.7;face.position.z=0;group.add(face);group.userData.face=face;
       const light=new THREE.PointLight(color,12,5);light.position.z=.3;group.add(light);return group;};
     this.blossom=buildBlossom();
-    this.streetPortal=portal(this.scene,3.12,-2,-Math.PI/2,0x00cfff);this.fieldPortal=portal(this.meadow,0,-85,0,0xff922f);
+    this.streetPortal=portal(this.scene,3.12,-2,-Math.PI/2,0x00cfff);this.fieldPortal=portal(this.meadow,0,-85,Math.PI,0xff922f);
     this.blossomTarget=new THREE.WebGLRenderTarget(256,256);this.blossomMaterial=this.portalMaterial.clone();this.blossomMaterial.uniforms.view.value=this.blossomTarget.texture;
-    this.blossomEntry=portal(this.scene,3.12,-12,-Math.PI/2,0xff73c5);this.blossomExit=portal(this.blossom,0,-85,0,0xff73c5);
+    this.blossomEntry=portal(this.scene,3.12,-12,-Math.PI/2,0xff73c5);this.blossomExit=portal(this.blossom,0,-85,Math.PI,0xff73c5);
     this.blossomEntry.userData.face.material=this.blossomMaterial;this.blossomExit.userData.face.material=this.blossomMaterial;
     batchStatic(this.meadow);batchStatic(this.blossom);for(const field of [this.meadow,this.blossom]){field.scale.z=.6;field.position.z=-34;}
     this.portalPairs=[{realm:'meadow',z:-2,scene:this.meadow,entry:this.streetPortal,exit:this.fieldPortal,target:this.portalTarget},{realm:'blossom',z:-12,scene:this.blossom,entry:this.blossomEntry,exit:this.blossomExit,target:this.blossomTarget}];
     this.memoryStones=WORLDS.map((w,i)=>{const stone=new THREE.Mesh(new THREE.OctahedronGeometry(.24),new THREE.MeshBasicMaterial({color:0x424b60}));stone.position.set((i-2)*.65,1.65,-35.7);this.scene.add(stone);const socket=new THREE.Mesh(new THREE.TorusGeometry(.32,.05,6,24),new THREE.MeshLambertMaterial({color:0xa6abb7}));socket.position.copy(stone.position);this.scene.add(socket);return stone;});
     for(const w of WORLDS){const world=buildDream(w),target=new THREE.WebGLRenderTarget(256,256),material=this.portalMaterial.clone();material.uniforms.view.value=target.texture;
-      const entry=portal(this.scene,3.12,w.z,-Math.PI/2,w.color),exit=portal(world,0,-85,0,w.color);entry.userData.face.material=exit.userData.face.material=material;
+      const entry=portal(this.scene,3.12,w.z,-Math.PI/2,w.color),exit=portal(world,0,-85,Math.PI,w.color);entry.userData.face.material=exit.userData.face.material=material;
       const name=texture(512,96,(c,width,height)=>{c.fillStyle='#111522';c.fillRect(0,0,width,height);c.strokeStyle='#c9d7e8';c.strokeRect(4,4,width-8,height-8);c.fillStyle='#eef3ff';c.font='28px monospace';c.textAlign='center';c.fillText(w.name.toUpperCase(),width/2,59);});this.plane(3.18,4.1,w.z,3,.55,name,-Math.PI/2,true);
       this.portalPairs.push({realm:w.id,z:w.z,scene:world,entry,exit,target});
     }
@@ -300,11 +300,7 @@ export class Street {
     this.memoryStones.forEach((stone,i)=>{stone.material.color.setHex(state.puzzles?.[WORLDS[i].id]?.solved?WORLDS[i].color:0x424b60);if(!reduced)stone.rotation.y=time*.3;});
     this.swordPedestal?.update(time,!!state.quest?.sword);
     for(const tv of (this.streetTethers||[]))tv.update(time,!!state.quest?.tethers?.includes(tv.id));
-    if(this.crucibleSeal){
-      const unlocked=!!state.quest?.sword;
-      this.crucibleSeal.visible=!unlocked;
-      this.crucibleEntry.userData.face.visible=unlocked;
-    }
+    this.crucibleSeal.visible=!state.quest?.sword;
 
     const p=state.player,bob=state.moving&&!reduced?Math.sin(state.distance*7)*.018:0;
     this.camera.position.set(p.x,1.64+bob,p.z);this.camera.rotation.set(p.pitch,p.yaw,0);
@@ -354,7 +350,9 @@ export class Street {
       remote.copy(this.camera);remote.rotation.order='YXZ';
       remote.position.set(p.x,this.camera.position.y,forward?(p.z+28):(p.z-28));
       remote.rotation.set(p.pitch,p.yaw,0);
-      this.renderer.clippingPlanes=[];
+      this.renderer.clippingPlanes=[forward
+        ? new THREE.Plane(new THREE.Vector3(0,0,-1),-85)
+        : new THREE.Plane(new THREE.Vector3(0,0,1),113)];
       this.renderer.setRenderTarget(link.target);
       this.renderer.render(forward?link.toScene:link.fromScene,remote);
     }

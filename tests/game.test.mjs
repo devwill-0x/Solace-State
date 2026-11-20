@@ -99,3 +99,46 @@ test('cutting enough bad tethers unlocks the switch and progressive portals adva
   assert.equal(restored.quest.lightMode,true);
   assert.equal(restored.quest.portalTier>=2,true);
 });
+
+test('a full sprint step crosses the portal even when its endpoint lies past the street edge',()=>{
+  const s=createState();
+  s.started=s.sprinting=true;
+  s.player={x:3.05,z:-2,yaw:-Math.PI/2,pitch:0};
+  walk(s,1,0,.1);
+  assert.equal(s.realm,'meadow');
+  assert.ok(Math.abs(s.player.z+85.44)<1e-8);
+});
+
+test('diagonal entry uses the opening at the crossing point',()=>{
+  const s=createState();
+  s.started=s.sprinting=true;
+  s.player={x:3.1,z:-2+.97,yaw:-Math.PI/2,pitch:0};
+  walk(s,1,-1,.1);
+  assert.equal(s.realm,'meadow');
+
+  s.realm='street';
+  s.player={x:3.1,z:-2+1.1,yaw:-Math.PI/2,pitch:0};
+  walk(s,1,-1,.1);
+  assert.equal(s.realm,'street');
+  walk(s,1,0,.1);
+  assert.equal(s.realm,'meadow');
+});
+
+test('progressive portal round trips preserve position and view',()=>{
+  const s=createState();
+  s.started=true;
+  claimSword(s);
+  s.quest.portalTier=3;
+  for(const [from,to] of [['arena1','arena2'],['arena2','arena3']]){
+    s.realm=from;
+    s.player={x:.8,z:-112.9,yaw:0,pitch:.15};
+    walk(s,1,0,.1);
+    assert.equal(s.realm,to);
+    assert.ok(Math.abs(s.player.z+85.18)<1e-8);
+    assert.equal(s.player.yaw,0);
+    assert.equal(s.player.pitch,.15);
+    walk(s,-1,0,.1);
+    assert.equal(s.realm,from);
+    assert.ok(Math.abs(s.player.z+112.9)<1e-8);
+  }
+});

@@ -42,17 +42,34 @@ export function walk(s, f, r, dt) {
   const dx = (-Math.sin(p.yaw) * f + Math.cos(p.yaw) * r) / l * v;
   const dz = (-Math.cos(p.yaw) * f - Math.sin(p.yaw) * r) / l * v;
 
+  const startX = p.x;
+  const startZ = p.z;
   const arena = ARENAS.find((a) => a.id === s.realm);
+  // Test the doorway where the movement segment intersects its plane.
+  if (s.realm === 'street' && dx > 0 && startX <= 3.12 && startX + dx > 3.12) {
+    const crossingZ = startZ + dz * (3.12 - startX) / dx;
+    const entry = LINKS.find((w) => Math.abs(crossingZ - w.z) < 1.02 && canEnterPortal(s, w.id));
+    if (entry) {
+      p.x = startZ + dz - entry.z;
+      p.z = -85 - (startX + dx - 3.12);
+      p.yaw += Math.PI / 2;
+      s.realm = entry.id;
+      s.distance += Math.hypot(dx, dz);
+      return true;
+    }
+  }
   const allowed = (x, z) => {
     if (arena) {
       if (Math.abs(x) >= 11.4 || z <= -114.6 || z >= -82) return false;
       if (z <= -113) {
-        return !!arena.next && Math.abs(x) < 1.35 && canEnterPortal(s, arena.next);
+        return !!arena.next && Math.abs(x) < 1.02 && canEnterPortal(s, arena.next);
       }
       return true;
     }
     if (s.realm !== 'street') return Math.abs(x) < 20 && z > -119 && z < -82;
-    return canWalk(x, z) || (x < 3.4 && x > 3 && LINKS.some((w) => Math.abs(z - w.z) < 1.02 && canEnterPortal(s, w.id)));
+    // Keep the player on the street side if a diagonal step misses the opening.
+    if (startX <= 3.12 && x > 3.12 && LINKS.some((w) => Math.abs(startZ - w.z) < 1.2)) return false;
+    return canWalk(x, z);
   };
 
   let moved = false;
@@ -60,20 +77,10 @@ export function walk(s, f, r, dt) {
   if (allowed(p.x, p.z + dz)) { p.z += dz; moved ||= dz !== 0; }
 
   const center = LINKS.find((w) => w.id === s.realm)?.z ?? -2;
-  if (s.realm === 'street' && p.x >= 3.12 && p.x - dx < 3.12) {
-    const entry = LINKS.find((w) => Math.abs(p.z - w.z) < 1.02 && canEnterPortal(s, w.id));
-    if (entry) {
-      const x = p.x;
-      p.x = p.z - entry.z;
-      p.z = -85 - (x - 3.12);
-      p.yaw += Math.PI / 2;
-      s.realm = entry.id;
-    }
-  } else if (arena && arena.next && p.z <= -113 && p.z - dz > -113 && Math.abs(p.x) < 1.35 && canEnterPortal(s, arena.next)) {
-    const overshoot = -113 - p.z;
-    p.z = -85.6 - overshoot;
+  if (arena?.next && startZ >= -113 && p.z < -113 && Math.abs(p.x) < 1.02 && canEnterPortal(s, arena.next)) {
+    p.z += 28;
     s.realm = arena.next;
-  } else if (arena && p.z >= -85 && p.z - dz < -85 && Math.abs(p.x) < 1.35) {
+  } else if (arena && startZ <= -85 && p.z > -85 && Math.abs(p.x) < 1.02) {
     if (arena.prev === 'street') {
       const x = p.x;
       p.x = 3.12 - (p.z + 85);
@@ -81,11 +88,10 @@ export function walk(s, f, r, dt) {
       p.yaw -= Math.PI / 2;
       s.realm = 'street';
     } else {
-      const overshoot = p.z + 85;
-      p.z = -112.4 + overshoot;
+      p.z -= 28;
       s.realm = arena.prev;
     }
-  } else if (!arena && s.realm !== 'street' && p.z >= -85 && p.z - dz < -85 && Math.abs(p.x) < 1.02) {
+  } else if (!arena && s.realm !== 'street' && startZ <= -85 && p.z > -85 && Math.abs(p.x) < 1.02) {
     const x = p.x;
     p.x = 3.12 - (p.z + 85);
     p.z = x + center;

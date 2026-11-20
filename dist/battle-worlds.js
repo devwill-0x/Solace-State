@@ -288,13 +288,13 @@ export function buildBattleArena(arena, createPortalFn) {
   }
 
   // Exit portal (South z = -85)
-  const exitPortal = createPortalFn(scene, 0, -85, 0, arena.color);
+  const exitPortal = createPortalFn(scene, 0, -85, Math.PI, arena.color);
 
   // North progressive portal gate (if not final tier)
   let nextPortal = null;
   let sealGroup = null;
   if (arena.next) {
-    nextPortal = createPortalFn(scene, 0, -113, Math.PI, arena.next === 'arena2' ? 0xd088ff : 0xffd37d);
+    nextPortal = createPortalFn(scene, 0, -113, 0, arena.next === 'arena2' ? 0xd088ff : 0xffd37d);
     sealGroup = new THREE.Group();
     sealGroup.position.set(0, 1.9, -112.4);
     for (let i = -1; i <= 1; i++) {
