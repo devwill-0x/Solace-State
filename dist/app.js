@@ -72,6 +72,11 @@ menu.addEventListener('cancel',e=>{e.preventDefault();if(state.started)setMenu(f
 $('restart').onclick=()=>{if(!confirm('Start over and clear your recovered memories?'))return;state=createState();state.runtime=createRuntimeCombat();setMenu(false);};
 $('music-toggle').onclick=async()=>{await music.toggle();rememberMusic();$('music-toggle').textContent=music.enabled?'Music On':'Music Off';};
 $('quality').onclick=()=>{sceneDirty=true;if(ascii)$('quality').innerHTML='Text detail <span>'+(ascii.toggle()==='HIGH'?'Fine':'Coarse')+'</span>';};
+function gesture(){
+  if(titleActive||state.paused||state.ride||!state.started||time-(state.gestureStart??-Infinity)<.92)return;
+  state.gestureStart=time;
+}
+$('gesture-btn').onclick=gesture;
 $('slash-btn').onclick=e=>{e.stopPropagation();triggerSlash();canvas.focus({preventScroll:true});};
 $('veil-switch').onclick=e=>{e.stopPropagation();flipSwitch();canvas.focus({preventScroll:true});};
 
@@ -81,12 +86,13 @@ window.addEventListener('keydown',e=>{
   if(titleActive){if(k==='escape'&&opening.mode==='film'){e.preventDefault();opening.finish();}return;}
   if(k==='escape'&&story.isOpen()){e.preventDefault();story.close();return;}
   if(story.isOpen())return;
+  if(k==='g'&&!e.repeat&&!state.paused){e.preventDefault();gesture();return;}
   if(k==='e'&&!e.repeat&&!state.paused){e.preventDefault();story.open();return;}
   if((k==='f'||k===' ')&&!e.repeat&&!state.paused&&!menu.open){e.preventDefault();if(state.quest?.sword)triggerSlash();return;}
   if((k==='t'||k==='tab')&&!e.repeat&&!state.paused&&!menu.open){if(state.quest?.lightUnlocked){e.preventDefault();flipSwitch();}return;}
   if(k==='escape'){e.preventDefault();if(!e.repeat&&state.started)setMenu(!menu.open);return;}
   if(menu.open)return;
-  if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();
+  if(['w','a','s','d','q','z','pageup','pagedown','arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();
   if(state.started&&!state.paused)keys.add(k);
 });
 window.addEventListener('keyup',e=>{keys.delete(e.key.toLowerCase());save();});
@@ -198,6 +204,7 @@ function frame(ms){
   }else state.moving=false;
   updateCombat(state,state.runtime,dt,time);
   story.update();updateHud();if(titleActive)$('interact').hidden=true;
+  $('gesture-btn').hidden=titleActive||state.paused||!state.started||!!state.ride;
   saveAge+=dt;if(saveAge>5){save();saveAge=0;}
   renderAge=titleActive?0:renderAge+dt;if(!titleActive&&renderAge>=1/30){if(!state.paused||sceneDirty){ascii.draw(state,time,state.paused?0:renderAge);sceneDirty=false;}renderAge=0;}
   requestAnimationFrame(frame);

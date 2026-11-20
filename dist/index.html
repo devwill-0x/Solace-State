@@ -16,11 +16,11 @@
 <div id="hud" class="glass" hidden><div id="hud-row"><span id="hud-objective">Find the Lightbreaker Sword</span><button id="slash-btn" hidden>Slash [F]</button><button id="veil-switch" hidden>Switch: ASCII Mesh [T]</button></div><div id="hud-hp-wrap" hidden><div id="hud-hp-fill"></div></div></div>
 <div id="hud-banner" class="glass" hidden></div>
 <div class="glass fatal-error" id="fatal-error" hidden><h1>A little trouble starting.</h1><p id="fatal-message"></p><button onclick="location.reload()">Try again</button></div>
-<button id="interact" class="glass" hidden></button></main>
+<button id="interact" class="glass" hidden></button><button id="gesture-btn" class="glass" hidden>Move hand</button></main>
 <dialog id="menu" class="glass" aria-labelledby="menu-title">
 <h1 id="menu-title">Solace State</h1><p>Five doors. Five lost memories.<br>Help this street reach morning.</p><p id="journey-progress"></p><button id="journal">Read your journal</button>
-<p class="desktop-help">WASD to walk. Hold Shift to sprint. Drag or use the arrow keys to look.<br>When armed, Click or press F to slash the mesh. Escape opens this menu.</p>
-<p class="touch-help">Left thumb to walk; drag farther to sprint. Right thumb to look.<br>Tap with two fingers to open this menu.</p>
+<p class="desktop-help">WASD to walk. Hold Shift to sprint. Drag to look, or press Q to look down. Press G to move your hand.<br>When armed, Click or press F to slash the mesh. Escape opens this menu.</p>
+<p class="touch-help">Left thumb to walk; drag farther to sprint. Right thumb to look. Look down and tap Move hand to see the trail.<br>Tap with two fingers to open this menu.</p>
 <button id="begin" class="primary" disabled>Preparing the street...</button>
 <button id="music-toggle" aria-pressed="false" aria-label="Toggle the original soundtrack">Music Off</button><div class="settings"><button id="sound" aria-pressed="false">Rain audio <span>Off</span></button><button id="quality" aria-label="Change ASCII density">Text detail <span>Fine</span></button></div>
 <button id="replay-opening">Replay the opening</button><button id="leave-ride" hidden>End drive and return to the street</button><button id="restart" hidden>Start a fresh walk</button>

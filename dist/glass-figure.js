@@ -231,8 +231,15 @@ function buildUnifiedHumanGeometry() {
 const VERTEX_SHADER = /* glsl */`
 uniform float uTime;
 uniform float uStride;
+uniform float uGesture;
+uniform float uHandSweep;
+varying float vBodyHeight;
 varying vec3 vWorldPos;
 varying vec3 vWorldNormal;
+
+float handWeight(vec3 p) {
+  return (1.0 - smoothstep(0.14, 0.42, p.y)) * smoothstep(0.125, 0.185, -p.x);
+}
 
 vec3 deformHuman(vec3 p) {
   float breath = sin(uTime * 1.45) * 0.005 * smoothstep(0.18, 0.44, p.y) * smoothstep(0.56, 0.36, p.y);
@@ -240,12 +247,20 @@ vec3 deformHuman(vec3 p) {
   p.xy *= 1.0 + breath * 0.35;
 
   // Seamless arm swing around shoulder pivot without separating mesh
-  float armW = smoothstep(0.42, 0.14, p.y) * smoothstep(0.125, 0.185, abs(p.x));
+  float armW = (1.0 - smoothstep(0.14, 0.42, p.y)) * smoothstep(0.125, 0.185, abs(p.x));
   float armAng = uStride * 0.30 * sign(p.x) * armW;
   vec2 armRel = p.yz - vec2(0.45, -0.005);
   float ca = cos(armAng), sa = sin(armAng);
   p.y = 0.45 + armRel.x * ca - armRel.y * sa;
   p.z = -0.005 + armRel.x * sa + armRel.y * ca;
+
+  // Lift the right arm from the shoulder, blending the rotation through the joint.
+  float weight = handWeight(p);
+  float lift = uGesture * weight;
+  vec2 shoulder = p.yz - vec2(0.45, -0.005);
+  p.y = 0.45 + shoulder.x * cos(lift) + shoulder.y * sin(lift);
+  p.z = -0.005 - shoulder.x * sin(lift) + shoulder.y * cos(lift);
+  p.x += 0.09 * lift + uHandSweep * weight;
 
   // Seamless leg stride around hip pivot
   float legW = smoothstep(0.02, -0.35, p.y) * smoothstep(0.015, 0.055, abs(p.x));
@@ -262,10 +277,14 @@ vec3 deformHuman(vec3 p) {
 }
 
 void main() {
+  vBodyHeight = position.y;
   vec3 pos = deformHuman(position);
   vec4 wp = modelMatrix * vec4(pos, 1.0);
   vWorldPos = wp.xyz;
-  vWorldNormal = normalize(mat3(modelMatrix) * normal);
+  float lift = uGesture * handWeight(position);
+  vec3 posedNormal = vec3(normal.x, normal.y * cos(lift) + normal.z * sin(lift),
+    -normal.y * sin(lift) + normal.z * cos(lift));
+  vWorldNormal = normalize(mat3(modelMatrix) * posedNormal);
   gl_Position = projectionMatrix * viewMatrix * wp;
 }
 `;
@@ -273,6 +292,8 @@ void main() {
 const FRAGMENT_SHADER = /* glsl */`
 uniform float uTime;
 uniform float uOpacityScale;
+uniform float uBodyCut;
+varying float vBodyHeight;
 varying vec3 vWorldPos;
 varying vec3 vWorldNormal;
 
@@ -311,6 +332,7 @@ vec3 spectrum(float t) {
 }
 
 void main() {
+  if (vBodyHeight > uBodyCut) discard;
   vec3 V = normalize(cameraPosition - vWorldPos);
   vec3 N = normalize(vWorldNormal);
   if (!gl_FrontFacing) N = -N;
@@ -365,6 +387,7 @@ void main() {
   glassColor += vec3(1.0) * (spec1 * 1.55 + spec2 * 1.15 + crispRim * 0.92);
 
   float alpha = clamp(0.24 + fresnel * 0.68 + bandStrength * 0.50 + spec1 + spec2, 0.22, 0.96) * uOpacityScale;
+  alpha *= 1.0 - smoothstep(uBodyCut - 0.075, uBodyCut, vBodyHeight);
   gl_FragColor = vec4(glassColor * alpha, alpha);
 }
 `;
@@ -395,6 +418,9 @@ export class GlassFigureRenderer {
         uniforms: {
           uTime: { value: 0 },
           uStride: { value: 0 },
+          uGesture: { value: 0 },
+          uHandSweep: { value: 0 },
+          uBodyCut: { value: 2 },
           uOpacityScale: { value: 0.44 }
         },
         transparent: true,
@@ -407,6 +433,9 @@ export class GlassFigureRenderer {
         uniforms: {
           uTime: { value: 0 },
           uStride: { value: 0 },
+          uGesture: { value: 0 },
+          uHandSweep: { value: 0 },
+          uBodyCut: { value: 2 },
           uOpacityScale: { value: 0.96 }
         },
         transparent: true,
@@ -453,6 +482,9 @@ export function createGlassFigureModel(){
         uniforms: {
           uTime: { value: 0 },
           uStride: { value: 0 },
+          uGesture: { value: 0 },
+          uHandSweep: { value: 0 },
+          uBodyCut: { value: 2 },
           uOpacityScale: { value: 0.44 }
         },
         transparent: true,
@@ -465,6 +497,9 @@ export function createGlassFigureModel(){
         uniforms: {
           uTime: { value: 0 },
           uStride: { value: 0 },
+          uGesture: { value: 0 },
+          uHandSweep: { value: 0 },
+          uBodyCut: { value: 2 },
           uOpacityScale: { value: 0.96 }
         },
         transparent: true,
@@ -479,5 +514,33 @@ export function createGlassFigureModel(){
       frontMesh.renderOrder = 2;
       group.add(backMesh, frontMesh);
 
- humanGeo.computeBoundingBox();const bounds=humanGeo.boundingBox,center=bounds.getCenter(new THREE.Vector3());humanGeo.translate(-center.x,-center.y,-center.z);const scale=1.7/(bounds.max.y-bounds.min.y);group.scale.setScalar(scale);return {group,update(time,state){for(const material of [backMat,frontMat]){material.uniforms.uTime.value=time;material.uniforms.uStride.value=state.moving?Math.sin(state.distance*5.2):0;}}};
+  humanGeo.computeBoundingBox();
+  const bounds = humanGeo.boundingBox;
+  const center = bounds.getCenter(new THREE.Vector3());
+  humanGeo.translate(-center.x, -center.y, -center.z);
+  group.scale.setScalar(1.7 / (bounds.max.y - bounds.min.y));
+
+  return {
+    group,
+    update(time, state, gesture = 0, sweep = 0, firstPerson = false) {
+      for (const material of [backMat, frontMat]) {
+        material.uniforms.uTime.value = time;
+        material.uniforms.uStride.value = state.moving ? Math.sin(state.distance * 5.2) * (1 - gesture / 2) : 0;
+        material.uniforms.uGesture.value = gesture;
+        material.uniforms.uHandSweep.value = sweep;
+        material.uniforms.uBodyCut.value = firstPerson ? 0.54 : 2;
+      }
+    },
+    handPosition(gesture, sweep, target) {
+      // Match the right hand's shoulder pivot in deformHuman().
+      const y = -0.035 - center.y - 0.45;
+      const z = 0.062 - center.z + 0.005;
+      target.set(
+        -0.205 - center.x + 0.09 * gesture + sweep,
+        0.45 + y * Math.cos(gesture) + z * Math.sin(gesture),
+        -0.005 - y * Math.sin(gesture) + z * Math.cos(gesture)
+      );
+      return group.localToWorld(target);
+    }
+  };
 }

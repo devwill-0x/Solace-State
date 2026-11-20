@@ -25,6 +25,45 @@ export class Street {
     this.wallTexture=texture(128,128,(c,w,h)=>{c.fillStyle='#b7b7b7';c.fillRect(0,0,w,h);for(let i=0;i<3500;i++){const v=90+rnd(i)*125;c.fillStyle=`rgb(${v},${v},${v})`;c.fillRect(rnd(i+9)*w,rnd(i+81)*h,1,1);}for(let y=0;y<h;y+=32){c.fillStyle='#888';c.fillRect(0,y,w,1);}});
     this.buildGround();for(let i=0;i<5;i++){if(i!==2)this.buildHouse(-1,i);if(i!==3)this.buildHouse(1,i);}this.buildPoles();this.buildDetails();this.buildMirrors();this.playerReflection=createGlassFigureModel();this.scene.add(this.playerReflection.group);this.playerReflection.group.visible=false;this.buildShrine();buildNeighborhood(this);this.flush();this.buildRain();this.buildHeavenDecor();this.buildMeadow();parkedCar(this.scene);this.rideScene=new PassengerRide();batchStatic(this.rideScene.scene);this.frustum=new THREE.Frustum();this.viewProjection=new THREE.Matrix4();
   }
+  drawPlayerBody(scene,state,time,reduced,gesture,sweep){
+    const figure=this.playerReflection,p=state.player;
+    if(figure.group.parent!==scene)scene.add(figure.group);
+    const eyeOffset=.055;
+    figure.group.position.set(p.x+Math.sin(p.yaw)*eyeOffset,.88,p.z+Math.cos(p.yaw)*eyeOffset);
+    figure.group.rotation.y=p.yaw+Math.PI;
+    figure.update(time,state,gesture,sweep,true);
+    figure.group.visible=state.started&&p.pitch<-.32;
+
+    if(!this.handTrail){
+      const geometry=new THREE.IcosahedronGeometry(.03,1);
+      this.handTrail=new THREE.Group();
+      this.handSamples=Array.from({length:8},()=>{
+        const point=new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({color:0xb5bbff,transparent:true,depthWrite:false}));
+        this.handTrail.add(point);
+        return {point,time:-Infinity};
+      });
+      this.handSampleIndex=0;
+      this.handSampleTime=-Infinity;
+    }
+    if(this.handTrail.parent!==scene||time<this.handSampleTime||reduced||!state.started){
+      if(this.handTrail.parent!==scene)scene.add(this.handTrail);
+      for(const sample of this.handSamples)sample.time=-Infinity;
+      this.handSampleTime=-Infinity;
+    }
+    if(figure.group.visible&&!reduced&&gesture>.16&&time-this.handSampleTime>=.035){
+      const sample=this.handSamples[this.handSampleIndex];
+      figure.handPosition(gesture,sweep,sample.point.position);
+      sample.time=this.handSampleTime=time;
+      this.handSampleIndex=(this.handSampleIndex+1)%this.handSamples.length;
+    }
+    for(const sample of this.handSamples){
+      const opacity=Math.max(0,1-(time-sample.time)/.26);
+      sample.point.visible=opacity>0;
+      sample.point.material.opacity=opacity*.6;
+      sample.point.scale.setScalar(.4+opacity*.6);
+    }
+    this.handTrail.visible=figure.group.visible&&!reduced;
+  }
   box(x,y,z,w,h,d,color=0x777777){this.boxes.push({p:[x,y,z],s:[w,h,d],color});}
   pipe(a,b,r=.04,color=0x777777){this.pipes.push({a,b,r,color});}
   wire(points){for(let i=0;i<points.length-1;i++)this.wires.push(...points[i],...points[i+1]);}
@@ -278,7 +317,14 @@ export class Street {
   }
 
   render(state,time,dt,reduced=false,forceHeaven=null){
-    if(state.ride)return this.rideScene.render(this.renderer,this.camera,state,reduced);
+    if(state.ride){
+      if(this.handTrail){for(const sample of this.handSamples)sample.time=-Infinity;}
+      return this.rideScene.render(this.renderer,this.camera,state,reduced);
+    }
+    const gestureAge=time-(state.gestureStart??-Infinity);
+    const phase=gestureAge>=0&&gestureAge<.92?Math.PI*gestureAge/.92:0;
+    const gesture=1.25*Math.sin(phase)**2;
+    const sweep=.09*Math.sin(2*phase)*Math.sin(phase);
     const cutFrac=Math.min(1,(state.quest?.tethers?.length||0)/6);
     const targetHeaven=forceHeaven!==null?forceHeaven:(state.quest?.lightMode?1:0);
     if(forceHeaven!==null)this.heaven=targetHeaven;
@@ -369,12 +415,16 @@ export class Street {
     }
     if(state.realm==='street'){
       for(const mirror of this.mapMirrors)mirror.face.visible=false;
-      const figure=this.playerReflection;figure.group.position.set(p.x,.88,p.z);figure.group.rotation.y=p.yaw+Math.PI;figure.update(time,state);figure.group.visible=true;
+      const figure=this.playerReflection;if(figure.group.parent!==this.scene)this.scene.add(figure.group);figure.group.position.set(p.x,.88,p.z);figure.group.rotation.y=p.yaw+Math.PI;figure.update(time,state,gesture,sweep);figure.group.visible=true;
       for(const mirror of this.mapMirrors)mirror.render(this.renderer,this.scene,this.camera,this.frustum);
       figure.group.visible=false;for(const mirror of this.mapMirrors)mirror.face.visible=true;
       this.renderer.setRenderTarget(null);this.renderer.clippingPlanes=[];
     }
-    this.renderer.render(this.portalPairs.find(pair=>pair.realm===state.realm)?.scene??this.arenaScenes?.[state.realm]?.scene??this.scene,this.camera);
+    const activeScene=this.portalPairs.find(pair=>pair.realm===state.realm)?.scene??this.arenaScenes?.[state.realm]?.scene??this.scene;
+    this.drawPlayerBody(activeScene,state,time,reduced,gesture,sweep);
+    this.renderer.render(activeScene,this.camera);
+    this.playerReflection.group.visible=false;
+    this.handTrail.visible=false;
     return this.renderer.domElement;
   }
 }
