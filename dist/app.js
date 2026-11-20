@@ -155,40 +155,49 @@ function createAudio(){
 }
 $('sound').onclick=async()=>{try{if(!audio)audio=createAudio();await audio.ctx.resume();muted=!muted;soundLevel();$('sound').setAttribute('aria-pressed',String(!muted));$('sound').innerHTML='Rain audio <span>'+(muted?'Off':'On')+'</span>';}catch{$('sound').textContent='Audio unavailable';}};
 
+const hudCache={show:null,obj:'',slash:null,swShow:null,swOn:null,hpShow:null,hpPct:'',bannerShow:null,bannerText:''};
 function updateHud(){
   const hud=$('hud'),show=!titleActive&&state.started&&!state.ride;
-  hud.hidden=!show;
+  if(hudCache.show!==show){hud.hidden=!show;hudCache.show=show;}
   const banner=$('hud-banner');
-  if(!show){banner.hidden=true;return;}
+  if(!show){if(hudCache.bannerShow!==false){banner.hidden=true;hudCache.bannerShow=false;}return;}
   const q=state.quest,rt=state.runtime,cuts=q.tethers.length;
   const arena=ARENAS.find(a=>a.id===state.realm);
+  let obj;
   if(!q.sword){
-    $('hud-objective').textContent='Find the Sword — Western Tea Courtyard';
+    obj='Find the Sword — Western Tea Courtyard';
   }else if(arena){
     const foes=rt.enemies.filter(e=>e.alive).length;
     const roomTethers=TETHERS.filter(t=>t.realm===arena.id&&!q.tethers.includes(t.id)).length;
-    $('hud-objective').textContent=foes||roomTethers
+    obj=foes||roomTethers
       ? `${arena.name}  •  Foes: ${foes}  •  Tethers: ${roomTethers}`
       : arena.next
         ? `${arena.name} Cleared  •  North Progressive Portal Open`
         : `${arena.name} Purified  •  Tethers: ${cuts}/${TETHERS.length}`;
   }else if(!q.lightUnlocked){
-    $('hud-objective').textContent=`Bad Tethers: ${cuts} / ${TETHER_GOAL}  •  Battle Portal: East Alley`;
+    obj=`Bad Tethers: ${cuts} / ${TETHER_GOAL}  •  Battle Portal: East Alley`;
   }else{
-    $('hud-objective').textContent=`Tethers Cut: ${cuts} / ${TETHERS.length}  •  Portals Tier ${q.portalTier}/3`;
+    obj=`Tethers Cut: ${cuts} / ${TETHERS.length}  •  Portals Tier ${q.portalTier}/3`;
   }
-  $('slash-btn').hidden=!q.sword;
-  const sw=$('veil-switch');
-  sw.hidden=!q.lightUnlocked;
-  if(q.lightUnlocked){
-    sw.classList.toggle('on',!!q.lightMode);
-    sw.textContent=q.lightMode?'Switch: Heavenly Light [T]':'Switch: ASCII Mesh [T]';
+  if(hudCache.obj!==obj){$('hud-objective').textContent=obj;hudCache.obj=obj;}
+  if(hudCache.slash!==!q.sword){$('slash-btn').hidden=!q.sword;hudCache.slash=!q.sword;}
+  const swShow=!!q.lightUnlocked,swOn=!!q.lightMode;
+  if(hudCache.swShow!==swShow){$('veil-switch').hidden=!swShow;hudCache.swShow=swShow;}
+  if(swShow&&hudCache.swOn!==swOn){
+    const sw=$('veil-switch');
+    sw.classList.toggle('on',swOn);
+    sw.textContent=swOn?'Switch: Heavenly Light [T]':'Switch: ASCII Mesh [T]';
+    hudCache.swOn=swOn;
   }
   const showHp=!!arena||rt.hp<rt.maxHp;
-  $('hud-hp-wrap').hidden=!showHp;
-  $('hud-hp-fill').style.width=`${Math.max(0,Math.min(100,(rt.hp/rt.maxHp)*100))}%`;
-  banner.hidden=!(rt.bannerTimer>0);
-  if(rt.bannerTimer>0)banner.textContent=rt.banner;
+  if(hudCache.hpShow!==showHp){$('hud-hp-wrap').hidden=!showHp;hudCache.hpShow=showHp;}
+  if(showHp){
+    const hpPct=`${Math.max(0,Math.min(100,Math.round((rt.hp/rt.maxHp)*100)))}%`;
+    if(hudCache.hpPct!==hpPct){$('hud-hp-fill').style.width=hpPct;hudCache.hpPct=hpPct;}
+  }
+  const bShow=rt.bannerTimer>0;
+  if(hudCache.bannerShow!==bShow){banner.hidden=!bShow;hudCache.bannerShow=bShow;}
+  if(bShow&&hudCache.bannerText!==rt.banner){banner.textContent=rt.banner;hudCache.bannerText=rt.banner;}
 }
 
 function frame(ms){
