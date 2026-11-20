@@ -57,3 +57,13 @@ Portal textures now sample using the actual output viewport while their lower-re
 Street and courtyard mirrors now render the map from a camera reflected across the mirror plane, clipping out geometry behind the glass. Reflections respond to position, angle, and perspective. The player?s glass model is positioned in the world and rendered only into mirror views; no separate 2D figure or aura is painted over the screen. Only visible mirrors render, with capped resolution and no recursive mirror passes. The same reflected scene is sampled into ASCII or shown directly in Heavenly Light mode.
 
 Reflection tests verify camera geometry; browser checks validate viewport sampling with a four-color test texture, all three mirror render targets, portal round trips, and portrait resizing.
+
+### Iridescent player body
+
+The reference implementation is the body and mirror setup in commit
+[`f5f26b2`](https://github.com/devwill-0x/Solace-State/tree/f5f26b21a0c7f78aa07dd6bf989033900eef51a8).
+Use [`createGlassFigureModel()`](dist/glass-figure.js) to reproduce the in-game figure.
+
+- **Shape.** Blend tapered capsules and ellipsoids with a smooth minimum to form a single signed distance field. Sample it on a 44 x 104 x 26 grid and extract the zero surface as one continuous mesh. This keeps the glass smooth across the shoulders, hips, and other joints. Center the geometry and scale it to 1.7 world units tall.
+- **Glass.** Render the same mesh twice. Draw transparent back faces first at opacity scale 0.44 with depth writes off, then front faces at 0.96 with depth writes on. The shader uses Fresnel rim lighting, procedural studio reflections, separate RGB refraction, and animated caustic ribbons. No external textures or model files are required.
+- **Pose and reflection.** In [`Street.render()`](dist/street.js), place the figure at the player's X/Z position and Y = 0.88, with rotation equal to player yaw plus pi. Drive the shader's stride from distance traveled while moving and set it to zero at rest. Show the figure during the reflected camera passes in [`reflection.js`](dist/reflection.js), then hide it before drawing the main camera.
